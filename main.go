@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/dlclark/regexp2"
 	"rsc.io/pdf"
 )
 
 type TxnData struct {
-	Date     string
+	Date     time.Time
 	Category string
 	Merchant string
 	Value    string
@@ -65,9 +66,15 @@ func main() {
 		/* ---------- Find debit transactions ---------- */
 		match, _ := uobDebitRegex.FindStringMatch(concatPageContent)
 		for match != nil {
-			date := match.GroupByNumber(1).String()
+			dateStr := match.GroupByNumber(1).String()
 			merchant := match.GroupByNumber(2).String()
 			txnAmountStr := match.GroupByNumber(3).String()
+
+			// Transform date
+			date, err := stringToDate(dateStr, "2024")
+			if err != nil {
+				log.Fatal("Error parsing date", err)
+			}
 
 			// Look for category of merchant
 			category, ok := merchantsToCategoryMap[strings.ToUpper(merchant)]
@@ -109,11 +116,11 @@ func main() {
 	MustSetup()
 	fmt.Println("Completed setting up database ...")
 
-	fmt.Println("Total Amount to Debit: ", totalToDebit)
-	fmt.Println("Total Amount to Credit: ", totalToCredit)
-	fmt.Println("Total Amount to Pay: ", totalToDebit-totalToCredit)
-
-	fmt.Println("costPerCategory: ", costPerCategory)
-	fmt.Println("merchantsUnaccountedFor: ", merchantsUnaccountedFor)
+	//fmt.Println("Total Amount to Debit: ", totalToDebit)
+	//fmt.Println("Total Amount to Credit: ", totalToCredit)
+	//fmt.Println("Total Amount to Pay: ", totalToDebit-totalToCredit)
+	//
+	//fmt.Println("costPerCategory: ", costPerCategory)
+	//fmt.Println("merchantsUnaccountedFor: ", merchantsUnaccountedFor)
 
 }

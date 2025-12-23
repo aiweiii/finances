@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func MustSetup() {
-	db, err := sql.Open("sqlite3", "finance.db")
+	db, err := sql.Open("mysql", "admin:admin@tcp(localhost:3306)/finance?parseTime=true")
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
@@ -27,7 +27,7 @@ func MustSetup() {
 	// Create a fresh table
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS expenses (
-	    date TEXT,
+	    datetime DATETIME,
 	    category TEXT,
 	    merchant TEXT,
 	    amount REAL
@@ -50,7 +50,7 @@ func MustSetup() {
 		log.Fatalf("Error starting sql transaction: %v", err)
 	}
 
-	stmt, err := txn.Prepare("INSERT INTO expenses (date, category, merchant, amount) VALUES (?, ?, ?, ?)")
+	stmt, err := txn.Prepare("INSERT INTO expenses (datetime, category, merchant, amount) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		log.Fatalf("Error preparing statement: %v", err)
 	}

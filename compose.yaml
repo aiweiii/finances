@@ -1,0 +1,29 @@
+services:
+  #  app:
+  #    build: .
+  #    depends_on:
+  #      - database
+
+  database:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: finance
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      # MySQL stores data in /var/lib/mysql (inside container).
+      # This is telling Docker to redirect data in /var/lib/mysql to the volume `finance_data` to be persisted
+      - finance_data:/var/lib/mysql
+
+  dashboard:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - database
+
+volumes:
+  finance_data:

@@ -4,6 +4,8 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/shopspring/decimal"
 )
@@ -30,7 +32,7 @@ func writeToTsv(outputFileName string, transactions []TxnData) {
 
 	for _, txn := range transactions {
 		row := []string{
-			txn.Date,
+			txn.Date.Format("2006-01-02"),
 			txn.Category,
 			txn.Merchant,
 			txn.Value,
@@ -40,3 +42,34 @@ func writeToTsv(outputFileName string, transactions []TxnData) {
 		}
 	}
 }
+
+func stringToDate(ddMmm string, yyyy string) (time.Time, error) {
+	ddMmmYyyy := strings.ToUpper(ddMmm) + yyyy
+
+	loc, _ := time.LoadLocation("Asia/Singapore")
+	t, err := time.ParseInLocation(
+		"02Jan2006", // Strictly referencing layout: Mon Jan 2 15:04:05 MST 2006  (aka 1 2 3 4 5 6 -7)
+		ddMmmYyyy,
+		loc)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("Error parsing time: %w", err)
+	}
+
+	return t, err
+}
+
+//func readCsvFile(filePath string) ([][]string, error) {
+//	file, err := os.Open(filePath)
+//	if err != nil {
+//		return nil, fmt.Errorf("Error opening file %s: %v", filePath, err)
+//	}
+//	defer file.Close()
+//
+//	csvReader := csv.NewReader(file)
+//	records, err := csvReader.ReadAll()
+//	if err != nil {
+//		return nil, fmt.Errorf("Error parsing file %s as CSV: %v", filePath, err)
+//	}
+//
+//	return records[1:], nil
+//}
