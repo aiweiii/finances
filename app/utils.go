@@ -1,47 +1,10 @@
-package main
+package app
 
 import (
-	"encoding/csv"
 	"fmt"
-	"os"
 	"strings"
 	"time"
-
-	"github.com/shopspring/decimal"
 )
-
-func convertToCents(input string) (int64, error) {
-	amount, err := decimal.NewFromString(input)
-	if err != nil {
-		return 0, err
-	}
-
-	cents := amount.Mul(decimal.NewFromInt(100))
-	return cents.IntPart(), nil
-}
-
-func writeToTsv(outputFileName string, transactions []TxnData) {
-	outputFile, _ := os.Create(outputFileName)
-	defer outputFile.Close()
-
-	writer := csv.NewWriter(outputFile)
-	writer.Comma = '\t'
-	defer writer.Flush()
-
-	writer.Write([]string{"date", "category", "merchant", "amount"})
-
-	for _, txn := range transactions {
-		row := []string{
-			txn.Date.Format("2006-01-02"),
-			txn.Category,
-			txn.Merchant,
-			txn.Value,
-		}
-		if err := writer.Write(row); err != nil {
-			fmt.Errorf("failed to write row: %w", err)
-		}
-	}
-}
 
 func stringToDate(ddMmm string, yyyy string) (time.Time, error) {
 	ddMmmYyyy := strings.ToUpper(ddMmm) + yyyy
@@ -57,6 +20,41 @@ func stringToDate(ddMmm string, yyyy string) (time.Time, error) {
 
 	return t, err
 }
+
+//
+//func convertToCents(input string) (int64, error) {
+//	amount, err := decimal.NewFromString(input)
+//	if err != nil {
+//		return 0, err
+//	}
+//
+//	cents := amount.Mul(decimal.NewFromInt(100))
+//	return cents.IntPart(), nil
+//}
+
+//func writeToTsv(outputFileName string, transactions []TxnData) {
+//	outputFile, _ := os.Create(outputFileName)
+//	defer outputFile.Close()
+//
+//	writer := csv.NewWriter(outputFile)
+//	writer.Comma = '\t'
+//	defer writer.Flush()
+//
+//	writer.Write([]string{"txn_date", "category", "merchant", "amount", "bank"})
+//
+//	for _, txn := range transactions {
+//		row := []string{
+//			txn.Date.Format("2006-01-02"),
+//			txn.Category,
+//			txn.Merchant,
+//			txn.Value,
+//			txn.Bank,
+//		}
+//		if err := writer.Write(row); err != nil {
+//			fmt.Errorf("failed to write row: %w", err)
+//		}
+//	}
+//}
 
 //func readCsvFile(filePath string) ([][]string, error) {
 //	file, err := os.Open(filePath)

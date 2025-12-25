@@ -1,10 +1,5 @@
 services:
-  #  app:
-  #    build: .
-  #    depends_on:
-  #      - database
-
-  database:
+  mysql:
     image: mysql:8.0
     ports:
       - "3306:3306"
@@ -18,12 +13,12 @@ services:
       # This is telling Docker to redirect data in /var/lib/mysql to the volume `finance_data` to be persisted
       - finance_data:/var/lib/mysql
 
-  dashboard:
+  grafana:
     image: grafana/grafana
     ports:
       - "3000:3000"
     depends_on:
-      - database
+      - mysql
 
 volumes:
   finance_data:
