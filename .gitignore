@@ -1,5 +1,8 @@
+*.csv
 *.idea
-*.xml
-.DS_Store
 *.pdf
 *.tsv
+*.xml
+.DS_Store
+.ipynb_checkpoints/
+.venv/
