@@ -1,10 +1,30 @@
 package app
 
 import (
+	"encoding/csv"
 	"fmt"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
+
+func readCsvFile(filePath string) ([][]string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening file %s: %v", filePath, err)
+	}
+	defer file.Close()
+
+	csvReader := csv.NewReader(file)
+	records, err := csvReader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("error parsing file %s as CSV: %v", filePath, err)
+	}
+
+	return records[1:], nil
+}
 
 func stringToDate(ddMmm string, yyyy string) (time.Time, error) {
 	ddMmmYyyy := strings.ToUpper(ddMmm) + yyyy
@@ -15,22 +35,24 @@ func stringToDate(ddMmm string, yyyy string) (time.Time, error) {
 		ddMmmYyyy,
 		loc)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("Error parsing time: %w", err)
+		return time.Time{}, fmt.Errorf("error parsing time: %w", err)
 	}
 
 	return t, err
 }
 
-//
-//func convertToCents(input string) (int64, error) {
-//	amount, err := decimal.NewFromString(input)
-//	if err != nil {
-//		return 0, err
-//	}
-//
-//	cents := amount.Mul(decimal.NewFromInt(100))
-//	return cents.IntPart(), nil
-//}
+func convertToCents(input string) (int64, error) {
+	input = strings.ReplaceAll(input, ",", "")
+	input = strings.TrimSpace(input)
+
+	amount, err := decimal.NewFromString(input)
+	if err != nil {
+		return 0, err
+	}
+
+	cents := amount.Mul(decimal.NewFromInt(100))
+	return cents.IntPart(), nil
+}
 
 //func writeToTsv(outputFileName string, transactions []TxnData) {
 //	outputFile, _ := os.Create(outputFileName)
@@ -54,20 +76,4 @@ func stringToDate(ddMmm string, yyyy string) (time.Time, error) {
 //			fmt.Errorf("failed to write row: %w", err)
 //		}
 //	}
-//}
-
-//func readCsvFile(filePath string) ([][]string, error) {
-//	file, err := os.Open(filePath)
-//	if err != nil {
-//		return nil, fmt.Errorf("Error opening file %s: %v", filePath, err)
-//	}
-//	defer file.Close()
-//
-//	csvReader := csv.NewReader(file)
-//	records, err := csvReader.ReadAll()
-//	if err != nil {
-//		return nil, fmt.Errorf("Error parsing file %s as CSV: %v", filePath, err)
-//	}
-//
-//	return records[1:], nil
 //}

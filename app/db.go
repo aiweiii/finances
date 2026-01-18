@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"strconv"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -20,6 +19,7 @@ func MustSetup(db *sql.DB) {
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS expenses (
 	    txn_date DATETIME,
+	    txn_type VARCHAR(255),
 	    category VARCHAR(255),
 	    merchant VARCHAR(255),
 	    amount DECIMAL(10,2),
@@ -37,15 +37,15 @@ func InsertIntoDb(db *sql.DB, txns []TxnData) error {
 	}
 	defer dbTxn.Rollback()
 
-	stmt, err := dbTxn.Prepare("INSERT INTO expenses (txn_date, category, merchant, amount, bank) VALUES (?, ?, ?, ?, ?)")
+	stmt, err := dbTxn.Prepare("INSERT INTO expenses (txn_date, txn_type, category, merchant, amount, bank) VALUES (?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return fmt.Errorf("error preparing statement: %w", err)
 	}
 	defer stmt.Close()
 
 	for _, txn := range txns {
-		amountInFloat, _ := strconv.ParseFloat(txn.Value, 64)
-		_, err = stmt.Exec(txn.Date, txn.Category, txn.Merchant, amountInFloat, txn.Bank)
+		amountInFloat := fmt.Sprintf("%.2f", float64(txn.Value)/100)
+		_, err = stmt.Exec(txn.Date, txn.TxnType, txn.Category, txn.Merchant, amountInFloat, txn.Bank)
 		if err != nil {
 			return fmt.Errorf("error executing statement: %w", err)
 		}

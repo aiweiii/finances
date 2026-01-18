@@ -1,98 +1,159 @@
 package app
 
 import (
-	"log"
+	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
-
-	"github.com/dlclark/regexp2"
-	"rsc.io/pdf"
 )
 
 type TxnData struct {
 	Date     time.Time
 	Bank     string
 	TxnType  string // credit or debit only
-	Value    string
+	Value    int64
 	Category string
 	Merchant string
 }
 
 var (
 	transactions            []TxnData
-	merchantsToCategoryMap  = MapMerchantToCategory()
 	merchantsUnaccountedFor []string
-	uobDebitRegex           = regexp2.MustCompile("\\d{2}[A-Z]{3}(\\d{2}[A-Z]{3})((?:(?!\\d{2}[A-Z]{3}\\d{2}[A-Z]{3}).)*?)RefNo\\.:\\d{23}(?:\\w{3}\\d*,*\\d+\\.\\d{2})?(\\d*,*\\d+\\.\\d{2})(?!CR)", 0)
-
-	// {1} in the middle = to avoid capturing a group with CR if it does not have a REF NO. before it
-	//  e.g., PAYMT THRU E-BANK/HOMEB/CYBERB (EP58)
-	uobCreditRegex = regexp2.MustCompile("\\d{2}[A-Z]{3}(\\d{2}[A-Z]{3})((?:(?!\\d{2}[A-Z]{3}\\d{2}[A-Z]{3}).)*?)RefNo\\.:(?:\\d{23}){1}(\\d*,*\\d+\\.\\d{2})CR", 0)
 )
 
-func GetTransactions(inputFilePath string) []TxnData {
+func GetTransactions(inputFilePath string, merchantToCategoryMap map[string]string) ([]TxnData, error) {
+	funcName := "GetTransactions"
+
+	transactions = []TxnData{}
+
 	fileNameWithExt := filepath.Base(inputFilePath)
 	fileName := strings.TrimSuffix(fileNameWithExt, filepath.Ext(fileNameWithExt))
 	parts := strings.Split(fileName, "_")
 	bank := strings.ToUpper(parts[0])
 	year := parts[2]
 
-	doc, err := pdf.Open(inputFilePath)
-	if err != nil {
-		log.Fatalf("error opening PDF: %v", err)
+	isDepositAccTxn := false
+	if len(parts) > 3 {
+		isDepositAccTxn = true
 	}
 
-	for pageNum := 1; pageNum <= doc.NumPage(); pageNum++ {
-		page := doc.Page(pageNum)
-		content := page.Content()
+	txns, err := readCsvFile(inputFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("[%s] error opening csv file: %w", funcName, err)
+	}
 
-		var concatPageContent string
-		for _, text := range content.Text {
-			concatPageContent += text.S
+	for _, row := range txns {
+
+		// skip row if there's no txn date as it's usually misc rows like 'PREVIOUS BALANCE', 'SUB TOTAL' etc.
+		if row[1] == "" {
+			continue
 		}
 
-		matchAndAppendTransactions(uobDebitRegex, concatPageContent, "DEBIT", bank, year)
-		matchAndAppendTransactions(uobCreditRegex, concatPageContent, "CREDIT", bank, year)
+		txn := TxnData{}
+		if isDepositAccTxn {
+			txn, err = getTransactionsForUobDepositAcc(row, year)
+			if err != nil {
+				return nil, fmt.Errorf("[%s] error getting transactions for UOB deposit acc: %w", funcName, err)
+			}
+		} else {
+			txn, err = getTransactionsForUobCreditCard(row, year)
+			if err != nil {
+				return nil, fmt.Errorf("[%s] error getting transactions for UOB credit card: %w", funcName, err)
+			}
+		}
 
+		// match merchants to an expected category
+		// TODO: implement trie-based prefix search
+		category, ok := merchantToCategoryMap[strings.ToUpper(txn.Merchant)]
+		if !ok {
+			// TODO: log out/ save in db merchants unaccounted for to manually re-categorise
+			merchantsUnaccountedFor = append(merchantsUnaccountedFor, txn.Merchant)
+		}
+		txn.Category = category
+		txn.Bank = bank
+
+		transactions = append(transactions, txn)
 	}
-	log.Println("merchants unaccounted for: ", merchantsUnaccountedFor)
-	return transactions
+
+	return transactions, nil
 }
 
-func matchAndAppendTransactions(regex *regexp2.Regexp,
-	pageContent string,
-	txnType string,
-	bank string,
-	year string) {
+func getTransactionsForUobCreditCard(row []string, year string) (TxnData, error) {
+	funcName := "getTransactionsForUobCreditCard"
 
-	match, _ := regex.FindStringMatch(pageContent)
-	for match != nil {
-		dateStr := match.GroupByNumber(1).String()
-		merchant := match.GroupByNumber(2).String()
-		txnAmountStr := match.GroupByNumber(3).String()
-
-		// Transform date
-		date, err := stringToDate(dateStr, year)
-		if err != nil {
-			log.Fatal("Error parsing date", err)
-		}
-
-		// Look for category of merchant
-		category, ok := merchantsToCategoryMap[strings.ToUpper(merchant)]
-		if !ok {
-			merchantsUnaccountedFor = append(merchantsUnaccountedFor, merchant)
-		}
-
-		transactions = append(transactions, TxnData{
-			Date:     date,
-			Bank:     bank,
-			TxnType:  txnType,
-			Value:    txnAmountStr,
-			Category: category,
-			Merchant: merchant,
-		})
-
-		// Look for the next match
-		match, _ = regex.FindNextMatch(match)
+	trimmedDate := strings.ReplaceAll(row[1], " ", "")
+	date, err := stringToDate(trimmedDate, year)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting stringified date in raw stmt to expected date format: %w", funcName, err)
 	}
+
+	merchant := row[2]
+	removeRefNoRegex := regexp.MustCompile("^(.*)\\s*Ref\\s*No\\b")
+	matches := removeRefNoRegex.FindStringSubmatch(merchant)
+	if len(matches) > 0 {
+		merchant = matches[1]
+	}
+
+	amt := row[3]
+	txnType := "DEBIT"
+	if strings.Contains(amt, "CR") {
+		amt = strings.TrimSuffix(strings.TrimSpace(amt), "CR")
+		txnType = "CREDIT"
+	}
+	amtInCents, err := convertToCents(amt)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting amount to cents: %w", funcName, err)
+	}
+
+	return TxnData{
+		Date:     date,
+		Bank:     "",
+		TxnType:  txnType,
+		Value:    amtInCents,
+		Category: "",
+		Merchant: merchant,
+	}, nil
+
+}
+
+func getTransactionsForUobDepositAcc(row []string, year string) (TxnData, error) {
+	funcName := "getTransactionsForUobDepositAcc"
+
+	trimmedDate := strings.ReplaceAll(row[0], " ", "")
+	date, err := stringToDate(trimmedDate, year)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting stringified-date in raw stmt to expected date format: %w", funcName, err)
+	}
+
+	merchant := row[1]
+	if row[2] != "" && row[3] != "" {
+		return TxnData{}, fmt.Errorf("[%s] unexpected row in uob_deposit file, check in file for merchant: %s", funcName, merchant)
+	}
+
+	amt := ""
+	txnType := ""
+
+	if row[2] != "" {
+		amt = row[2]
+		txnType = "CREDIT"
+
+	} else if row[3] != "" {
+		amt = row[3]
+		txnType = "DEBIT"
+	}
+
+	amtInCents, err := convertToCents(amt)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting amount to cents: %w", funcName, err)
+	}
+
+	return TxnData{
+		Date:     date,
+		Bank:     "",
+		TxnType:  txnType,
+		Value:    amtInCents,
+		Category: "",
+		Merchant: merchant,
+	}, nil
 }

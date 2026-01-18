@@ -2,17 +2,17 @@ package app
 
 import (
 	"bufio"
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-func MapMerchantToCategory() map[string]string {
+func MapMerchantToCategory() (map[string]string, error) {
 	folder := "categories"
 	entries, err := os.ReadDir(folder)
 	if err != nil {
-		log.Fatal("Cannot read directory", err)
+		return nil, fmt.Errorf("error reading categories directory: %w", err)
 	}
 
 	merchantToCategory := make(map[string]string)
@@ -23,7 +23,7 @@ func MapMerchantToCategory() map[string]string {
 
 		file, err := os.Open(fullPath)
 		if err != nil {
-			log.Println("Cannot open file %w", fileName)
+			return nil, fmt.Errorf("error opening file under categories: %w", err)
 		}
 		defer file.Close()
 
@@ -35,5 +35,5 @@ func MapMerchantToCategory() map[string]string {
 			}
 		}
 	}
-	return merchantToCategory
+	return merchantToCategory, nil
 }

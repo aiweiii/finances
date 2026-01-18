@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	inputFilePath = "./bank_statements/"
+	inputFilePath = "./preprocessor/scratch/"
 )
 
 func main() {
@@ -28,17 +28,30 @@ func main() {
 		log.Fatalf("error reading the directory %s: %v", inputFilePath, err)
 	}
 
+	// map merchants to categorise
+	merchantToCategoryMap, err := app.MapMerchantToCategory()
+	if err != nil {
+		log.Fatalf("error mapping merchants to categories: %v", err)
+	}
+
 	for _, entry := range entries {
-		if entry.Name() != "uob_nov_2025.pdf" {
+		if entry.IsDir() {
 			continue
 		}
+
 		log.Println("reading file: ", entry)
-		txns := app.GetTransactions(inputFilePath + entry.Name())
+		//if !strings.Contains(entry.Name(), "mar") {
+		//	continue
+		//}
+
+		txns, err := app.GetTransactions(inputFilePath+entry.Name(), merchantToCategoryMap)
+		if err != nil {
+			log.Fatalf("error getting transactions: %v", err)
+		}
+
 		err = app.InsertIntoDb(db, txns)
 		if err != nil {
 			log.Fatalf("error inserting transactions into db: %v", err)
 		}
-
 	}
-
 }
