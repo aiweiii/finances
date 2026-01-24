@@ -1,8 +1,11 @@
 package app
 
+import "strings"
+
 type TrieNode struct {
 	Children  map[string]*TrieNode // a node points to other nodes
 	EndOfWord bool
+	Category  string
 }
 
 type Trie struct {
@@ -17,11 +20,13 @@ func NewTrie() *Trie {
 	}
 }
 
-func (t *Trie) Insert(word string) {
+// Insert inserts uppercased word into trie and tags the EndOfWord with category
+func (t *Trie) Insert(word string, category string) {
 	curr := t.Root
+	word = strings.Join(strings.Fields(word), "")
 
 	for _, ru := range word {
-		char := string(ru)
+		char := strings.ToUpper(string(ru))
 
 		// if char is a key in children, trace down that child
 		// else create a new key from curr
@@ -36,36 +41,54 @@ func (t *Trie) Insert(word string) {
 
 	// after looping through all chars in word, mark end-of-word
 	curr.EndOfWord = true
+	curr.Category = category
 }
 
-func (t *Trie) Search(word string) bool {
+func (t *Trie) MatchLongestCategory(word string) string {
 	curr := t.Root
+	word = strings.Join(strings.Fields(word), "")
 
 	for _, ru := range word {
-		char := string(ru)
+		char := strings.ToUpper(string(ru))
 
 		_, ok := curr.Children[char]
 		if !ok {
-			return false
+			return curr.Category
 		}
 		curr = curr.Children[char]
 	}
 
-	return curr.EndOfWord
+	return curr.Category
 }
 
-func (t *Trie) StartsWith(word string) bool {
-	curr := t.Root
-
-	for _, ru := range word {
-		char := string(ru)
-
-		_, ok := curr.Children[char]
-		if !ok {
-			return false
-		}
-		curr = curr.Children[char]
-	}
-
-	return true
-}
+// func (t *Trie) Search(word string) bool {
+// 	curr := t.Root
+//
+// 	for _, ru := range word {
+// 		char := string(ru)
+//
+// 		_, ok := curr.Children[char]
+// 		if !ok {
+// 			return false
+// 		}
+// 		curr = curr.Children[char]
+// 	}
+//
+// 	return curr.EndOfWord
+// }
+//
+// func (t *Trie) StartsWith(word string) bool {
+// 	curr := t.Root
+//
+// 	for _, ru := range word {
+// 		char := string(ru)
+//
+// 		_, ok := curr.Children[char]
+// 		if !ok {
+// 			return false
+// 		}
+// 		curr = curr.Children[char]
+// 	}
+//
+// 	return true
+// }

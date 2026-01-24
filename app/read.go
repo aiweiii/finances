@@ -22,7 +22,7 @@ var (
 	merchantsUnaccountedFor []string
 )
 
-func GetTransactions(inputFilePath string, merchantToCategoryMap map[string]string) ([]TxnData, error) {
+func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 	funcName := "GetTransactions"
 
 	transactions = []TxnData{}
@@ -65,8 +65,8 @@ func GetTransactions(inputFilePath string, merchantToCategoryMap map[string]stri
 
 		// match merchants to an expected category
 		// TODO: implement trie-based prefix search
-		category, ok := merchantToCategoryMap[strings.ToUpper(txn.Merchant)]
-		if !ok {
+		category := trie.MatchLongestCategory(txn.Merchant)
+		if category == "" {
 			// TODO: log out/ save in db merchants unaccounted for to manually re-categorise
 			merchantsUnaccountedFor = append(merchantsUnaccountedFor, txn.Merchant)
 		}

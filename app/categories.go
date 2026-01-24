@@ -8,14 +8,14 @@ import (
 	"strings"
 )
 
-func MapMerchantToCategory() (map[string]string, error) {
+func BuildTrieOnKnownMerchants() (*Trie, error) {
 	folder := "categories"
 	entries, err := os.ReadDir(folder)
 	if err != nil {
 		return nil, fmt.Errorf("error reading categories directory: %w", err)
 	}
 
-	merchantToCategory := make(map[string]string)
+	t := NewTrie()
 
 	for _, entry := range entries {
 		fileName := entry.Name()
@@ -31,9 +31,10 @@ func MapMerchantToCategory() (map[string]string, error) {
 		for scanner.Scan() {
 			merchant := strings.ToUpper(strings.TrimSpace(scanner.Text()))
 			if merchant != "" {
-				merchantToCategory[merchant] = fileName
+				t.Insert(merchant, fileName)
 			}
 		}
 	}
-	return merchantToCategory, nil
+
+	return t, nil
 }

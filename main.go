@@ -28,10 +28,10 @@ func main() {
 		log.Fatalf("error reading the directory %s: %v", inputFilePath, err)
 	}
 
-	// map merchants to categorise
-	merchantToCategoryMap, err := app.MapMerchantToCategory()
+	// build trie on a list of known merchants to help obtain category from merchant name later
+	trie, err := app.BuildTrieOnKnownMerchants()
 	if err != nil {
-		log.Fatalf("error mapping merchants to categories: %v", err)
+		log.Fatalf("error building trie: %v", err)
 	}
 
 	for _, entry := range entries {
@@ -40,11 +40,11 @@ func main() {
 		}
 
 		log.Println("reading file: ", entry)
-		//if !strings.Contains(entry.Name(), "mar") {
-		//	continue
-		//}
+		// if !strings.Contains(entry.Name(), "mar") {
+		// 	continue
+		// }
 
-		txns, err := app.GetTransactions(inputFilePath+entry.Name(), merchantToCategoryMap)
+		txns, err := app.GetTransactions(inputFilePath+entry.Name(), trie)
 		if err != nil {
 			log.Fatalf("error getting transactions: %v", err)
 		}
