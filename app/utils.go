@@ -1,7 +1,9 @@
 package app
 
 import (
+	"crypto/sha256"
 	"encoding/csv"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -54,7 +56,12 @@ func convertToCents(input string) (int64, error) {
 	return cents.IntPart(), nil
 }
 
-//func writeToTsv(outputFileName string, transactions []TxnData) {
+func generateTxnId(fileNameAndRow string) string {
+	sum := sha256.Sum256([]byte(fileNameAndRow))
+	return hex.EncodeToString(sum[:4]) // Get first 4 bytes of 32-byte hash
+}
+
+// func writeToTsv(outputFileName string, transactions []TxnData) {
 //	outputFile, _ := os.Create(outputFileName)
 //	defer outputFile.Close()
 //
@@ -76,4 +83,4 @@ func convertToCents(input string) (int64, error) {
 //			fmt.Errorf("failed to write row: %w", err)
 //		}
 //	}
-//}
+// }

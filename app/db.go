@@ -18,12 +18,14 @@ func MustSetup(db *sql.DB) {
 	// Create a fresh table
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS expenses (
+	    id VARCHAR(255) PRIMARY KEY,
 	    txn_date DATETIME,
 	    txn_type VARCHAR(255),
 	    category VARCHAR(255),
 	    merchant VARCHAR(255),
 	    amount DECIMAL(10,2),
-	    bank VARCHAR(255)
+	    bank VARCHAR(255),
+	    raw_location VARCHAR(255) UNIQUE
 	)`)
 	if err != nil {
 		log.Fatalf("Error creating table: %v", err)
@@ -37,7 +39,7 @@ func InsertIntoDb(db *sql.DB, txns []TxnData) error {
 	}
 	defer dbTxn.Rollback()
 
-	stmt, err := dbTxn.Prepare("INSERT INTO expenses (txn_date, txn_type, category, merchant, amount, bank) VALUES (?, ?, ?, ?, ?, ?)")
+	stmt, err := dbTxn.Prepare("INSERT INTO expenses (id, txn_date, txn_type, category, merchant, amount, bank, raw_location) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return fmt.Errorf("error preparing statement: %w", err)
 	}
@@ -45,7 +47,7 @@ func InsertIntoDb(db *sql.DB, txns []TxnData) error {
 
 	for _, txn := range txns {
 		amountInFloat := fmt.Sprintf("%.2f", float64(txn.Value)/100)
-		_, err = stmt.Exec(txn.Date, txn.TxnType, txn.Category, txn.Merchant, amountInFloat, txn.Bank)
+		_, err = stmt.Exec(txn.Id, txn.Date, txn.TxnType, txn.Category, txn.Merchant, amountInFloat, txn.Bank, txn.RawLocation)
 		if err != nil {
 			return fmt.Errorf("error executing statement: %w", err)
 		}

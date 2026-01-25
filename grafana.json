@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "mysql",
-        "uid": "ef7z65ldfrzlsf"
+        "uid": "cfb4lwl2owx6ob"
       },
       "fieldConfig": {
         "defaults": {
@@ -152,7 +152,7 @@
     {
       "datasource": {
         "type": "mysql",
-        "uid": "ef7z65ldfrzlsf"
+        "uid": "cfb4lwl2owx6ob"
       },
       "fieldConfig": {
         "defaults": {
@@ -209,7 +209,7 @@
           "dataset": "finance",
           "datasource": {
             "type": "mysql",
-            "uid": "ef7z65ldfrzlsf"
+            "uid": "cfb4lwl2owx6ob"
           },
           "editorMode": "code",
           "format": "table",
@@ -241,7 +241,7 @@
     {
       "datasource": {
         "type": "mysql",
-        "uid": "ef7z65ldfrzlsf"
+        "uid": "cfb4lwl2owx6ob"
       },
       "fieldConfig": {
         "defaults": {
@@ -369,7 +369,7 @@
     {
       "datasource": {
         "type": "mysql",
-        "uid": "ef7z65ldfrzlsf"
+        "uid": "cfb4lwl2owx6ob"
       },
       "fieldConfig": {
         "defaults": {
@@ -426,7 +426,7 @@
           "dataset": "finance",
           "datasource": {
             "type": "mysql",
-            "uid": "ef7z65ldfrzlsf"
+            "uid": "cfb4lwl2owx6ob"
           },
           "editorMode": "code",
           "format": "table",
@@ -458,7 +458,7 @@
     {
       "datasource": {
         "type": "mysql",
-        "uid": "ef7z65ldfrzlsf"
+        "uid": "cfb4lwl2owx6ob"
       },
       "fieldConfig": {
         "defaults": {
@@ -558,7 +558,7 @@
     {
       "datasource": {
         "type": "mysql",
-        "uid": "ef7z65ldfrzlsf"
+        "uid": "cfb4lwl2owx6ob"
       },
       "fieldConfig": {
         "defaults": {
@@ -615,7 +615,7 @@
           "dataset": "finance",
           "datasource": {
             "type": "mysql",
-            "uid": "ef7z65ldfrzlsf"
+            "uid": "cfb4lwl2owx6ob"
           },
           "editorMode": "code",
           "format": "table",
