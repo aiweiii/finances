@@ -1,25 +1,32 @@
 package app
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
-	"log"
+	"os"
+	"strconv"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v5"
+	_ "github.com/lib/pq"
 )
 
-func MustSetup(db *sql.DB) {
-	// Drop table first (to ensure a fresh start)
-	_, err := db.Exec(`DROP TABLE IF EXISTS expenses`)
-	if err != nil {
-		log.Fatalf("Error dropping table: %v", err)
+func MustSetup(ctx context.Context, conn *pgx.Conn) error {
+
+	// Drop table if exist
+	dropTable, _ := strconv.ParseBool(os.Getenv("DROP_TABLE"))
+	if dropTable {
+		_, err := conn.Exec(ctx, "DROP TABLE IF EXISTS expenses")
+		if err != nil {
+			return fmt.Errorf("error dropping table: %w", err)
+		}
+		fmt.Println("dropped table")
 	}
 
-	// Create a fresh table
-	_, err = db.Exec(`
+	// Create table
+	_, err := conn.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS expenses (
 	    id VARCHAR(255) PRIMARY KEY,
-	    txn_date DATETIME,
+	    txn_date TIMESTAMPTZ,
 	    txn_type VARCHAR(255),
 	    category VARCHAR(255),
 	    merchant VARCHAR(255),
@@ -28,32 +35,28 @@ func MustSetup(db *sql.DB) {
 	    raw_location VARCHAR(255) UNIQUE
 	)`)
 	if err != nil {
-		log.Fatalf("Error creating table: %v", err)
+		return fmt.Errorf("error creating table: %w", err)
 	}
+
+	return nil
 }
 
-func InsertIntoDb(db *sql.DB, txns []TxnData) error {
-	dbTxn, err := db.Begin()
+func InsertIntoDb(ctx context.Context, conn *pgx.Conn, txns []TxnData) error {
+	tx, err := conn.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("error starting sql transaction: %w", err)
+		return fmt.Errorf("error beginning transaction: %w", err)
 	}
-	defer dbTxn.Rollback()
+	defer tx.Rollback(ctx) // Auto-rollback if not committed
 
-	stmt, err := dbTxn.Prepare("INSERT INTO expenses (id, txn_date, txn_type, category, merchant, amount, bank, raw_location) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-	if err != nil {
-		return fmt.Errorf("error preparing statement: %w", err)
-	}
-	defer stmt.Close()
+	sqlStmt := `INSERT INTO expenses (id, txn_date, txn_type, category, merchant, amount, bank, raw_location) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 	for _, txn := range txns {
 		amountInFloat := fmt.Sprintf("%.2f", float64(txn.Value)/100)
-		_, err = stmt.Exec(txn.Id, txn.Date, txn.TxnType, txn.Category, txn.Merchant, amountInFloat, txn.Bank, txn.RawLocation)
+		_, err = tx.Exec(ctx, sqlStmt, txn.Id, txn.Date, txn.TxnType, txn.Category, txn.Merchant, amountInFloat, txn.Bank, txn.RawLocation)
 		if err != nil {
 			return fmt.Errorf("error executing statement: %w", err)
 		}
 	}
 
-	dbTxn.Commit()
-
-	return nil
+	return tx.Commit(ctx)
 }

@@ -1,24 +1,23 @@
 services:
-  mysql:
-    image: mysql:8.0
+  postgres:
+    image: postgres:17
     ports:
-      - "3306:3306"
+      - "5432:5432"
     environment:
-      MYSQL_DATABASE: finance
-      MYSQL_USER: admin
-      MYSQL_PASSWORD: admin
-      MYSQL_ROOT_PASSWORD: root
+      POSTGRES_DB: finance
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
     volumes:
-      # MySQL stores data in /var/lib/mysql (inside container).
-      # This is telling Docker to redirect data in /var/lib/mysql to the volume `finance_data` to be persisted
-      - finance_data:/var/lib/mysql
+      # PostgreSQL stores data in /var/lib/postgresql/data inside the container.
+      # This persists data to the volume `finance_data`
+      - finance_data:/var/lib/postgresql/data
 
   grafana:
     image: grafana/grafana
     ports:
       - "3000:3000"
     depends_on:
-      - mysql
+      - postgres
 
 volumes:
   finance_data:

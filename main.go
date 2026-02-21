@@ -1,11 +1,14 @@
 package main
 
 import (
-	"database/sql"
+	"context"
 	"finance/app"
 	"fmt"
 	"log"
 	"os"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/joho/godotenv"
 )
 
 var (
@@ -13,14 +16,29 @@ var (
 )
 
 func main() {
-
-	db, err := sql.Open("mysql", "admin:admin@tcp(localhost:3306)/finance?parseTime=true")
-	if err != nil {
-		log.Fatalf("error opening database: %v", err)
+	env := "stg"
+	args := os.Args
+	if len(args) > 1 {
+		env = args[1]
 	}
-	defer db.Close()
+	fmt.Println("deploying for env:", env)
 
-	app.MustSetup(db)
+	err := godotenv.Load(".env." + env)
+	if err != nil {
+		log.Fatalf("error reading .env file: %v", err)
+	}
+
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, os.Getenv("DB_DSN"))
+	if err != nil {
+		log.Fatalf("error connecting to database: %v", err)
+	}
+
+	err = app.MustSetup(ctx, conn)
+	if err != nil {
+		log.Fatalf("error setting up db: %v", err)
+	}
+
 	fmt.Println("completed setting up database ...")
 
 	entries, err := os.ReadDir(inputFilePath)
@@ -39,17 +57,18 @@ func main() {
 			continue
 		}
 
-		log.Println("reading file: ", entry)
-		// if !strings.Contains(entry.Name(), "mar") {
+		// if entry.Name() != "uob_sept_2025.csv" {
 		// 	continue
 		// }
+
+		fmt.Println("reading file: ", entry)
 
 		txns, err := app.GetTransactions(inputFilePath+entry.Name(), trie)
 		if err != nil {
 			log.Fatalf("error getting transactions: %v", err)
 		}
 
-		err = app.InsertIntoDb(db, txns)
+		err = app.InsertIntoDb(ctx, conn, txns)
 		if err != nil {
 			log.Fatalf("error inserting transactions into db: %v", err)
 		}

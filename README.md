@@ -4,6 +4,13 @@ This project is a work in progress.
 This is a finance tracking web application. It takes in a PDF, reads the transactions into a structured CSV file, categorises and stores them into a database.
 There is no UI at the moment, iterations are done to first stabilise backend operations.
 
+Before you ask the most obvious question - it's 2026, why not use AI and get this done in a few hours?
+Of course, I would - if I just wanted the output.
+But I genuinely wanted to learn, make stupid mistakes, and just ... learn the normal way.
+That's part of the fun. Don't get me wrong, I embrace AI actively at work and also for parts of this project.
+I just don't want this to be another "input" → "prompt" → "done" project.
+I'm not rushing to get this out, so ... I'll enjoy the process even if this project is gonna be obsolete down the road.
+
 ## Background
 This project exists because, to my best knowledge, there are no applications that could let me reliably track all of my
 combined expenses (from different banks, transactions from both deposit/credit accounts etc.). 
@@ -36,15 +43,15 @@ So for now, I've decided to automate my laziness away as much as possible. Hence
 5. Once you're happy with your output CSV, navigate to the project root directory.
 6. Run `docker compose up`
 7. Run `go build`
-8. Run `go run .`
-9. Exec into mysql container to double check if your transactions are correctly populated into database.
-   - `mysql -u localhost -u admin -p root`
+8. Run `go run . local`
+9. Exec into postgres container to double check if your transactions are correctly populated into database.
+   - `psql -h localhost -U admin -d finance`
    - `use finance;`
    - `select * from expenses;`
 10. For now, I use grafana for visualisation as it's good enough to group by month and by category.
     - In your browser, navigate to `localhost:3000`.
-    - Set up mysql connection (`sudo docker network inspect` might come in handy to get local ipv4)
-    - If you're familiar with grafana, play around. If not, import `grafana.json` as an example.
+    - Set up postgres connection (`sudo docker network inspect` might come in handy to get local ipv4)
+    - If you're familiar with grafana, play around.
 11. [BONUS] If you want to categorise, follow Caveat point 2.
 
 This project has a long way to go. Open to collaboration.

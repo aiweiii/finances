@@ -4,8 +4,8 @@
 *.tsv
 *.xml
 .DS_Store
-.env
+.env*
+!.env.local
 .ipynb_checkpoints/
 .venv/
-README.md
 todo.txt
