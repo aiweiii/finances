@@ -1,0 +1,872 @@
+/* ── Design Tokens ──────────────────────────────── */
+:root {
+    --bg: #0f1117;
+    --bg-card: #1a1d27;
+    --bg-hover: #242836;
+    --border: #2a2e3d;
+    --text: #e4e6ef;
+    --text-muted: #8b8fa3;
+    --accent: #6c72cb;
+    --accent-glow: rgba(108, 114, 203, .15);
+    --radius: 12px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ── Reset & Base ──────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Header ────────────────────────────────────── */
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -.02em;
+}
+
+select {
+    appearance: none;
+    background: var(--bg-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b8fa3' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E") no-repeat right .75rem center;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: .875rem;
+    padding: .5rem 2rem .5rem .75rem;
+    cursor: pointer;
+    transition: border-color .2s;
+}
+
+select:hover,
+select:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+/* ── Main Layout (full width) ──────────────────── */
+main {
+    padding: 1.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* ── Stats Cards ───────────────────────────────── */
+.stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    transition: border-color .2s, box-shadow .2s;
+}
+
+.stat-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.stat-label {
+    font-size: .7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-muted);
+}
+
+.stat-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -.02em;
+}
+
+/* ── Chart Cards ───────────────────────────────── */
+.charts {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+.chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+}
+
+.section-title,
+.chart-card h2,
+.table-section h2,
+.daily-section h2 {
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: .5rem;
+}
+
+/* ── Category Chart + Table ────────────────────── */
+.category-layout {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.category-chart-wrap {
+    flex: 0 0 140px;
+    width: 140px;
+}
+
+.category-table {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.cat-row {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .78rem;
+    padding: .2rem 0;
+}
+
+.cat-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.cat-name {
+    flex: 1;
+    text-transform: capitalize;
+    color: var(--text-muted);
+}
+
+.cat-amount {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+}
+
+/* ── Daily Spending Line Chart ─────────────────── */
+.daily-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+}
+
+.daily-container {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 1.25rem;
+}
+
+.daily-line-chart {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── Mini Calendar Grid ────────────────────────── */
+.mini-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    max-width: 420px;
+}
+
+.mini-cal-day {
+    text-align: center;
+    font-size: .6rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding-bottom: .2rem;
+}
+
+.mini-cal-cell {
+    aspect-ratio: 1;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    border: 1px solid rgba(255, 255, 255, .04);
+    cursor: default;
+}
+
+.mini-cal-cell.blank {
+    border: none;
+    background: transparent;
+}
+
+.mini-cal-date {
+    font-size: .6rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    line-height: 1;
+}
+
+.mini-cal-amt {
+    font-size: .55rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+}
+
+/* ── Category Filter Chips ─────────────────────── */
+.cat-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: 1rem;
+}
+
+.cat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .35rem .75rem;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: .8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .15s;
+    text-transform: capitalize;
+}
+
+.cat-chip:hover {
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.cat-chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.cat-chip.clear {
+    border-color: transparent;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: .75rem;
+}
+
+.cat-chip.clear:hover {
+    color: #f87171;
+}
+
+.cat-chip-count {
+    font-size: .7rem;
+    opacity: .6;
+}
+
+/* ── Tab Navigation ────────────────────────────── */
+.main-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 2rem 0;
+}
+
+.main-tabs {
+    display: flex;
+    margin: 1.5rem 2rem 0;
+    background: #15171e;
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px solid var(--border);
+}
+
+.main-tab-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    font-size: .95rem;
+    font-weight: 500;
+    padding: .6rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .2s;
+}
+
+.main-tab-btn.active {
+    background: #1e2230;
+    color: var(--text);
+    border: 1px solid #3b82f6;
+    box-shadow: 0 0 0 1px inset rgba(59, 130, 246, .2);
+}
+
+main {
+    padding: 1.5rem 2rem 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* ── Transactions View ─────────────────────────── */
+.txn-view {
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 960px;
+    /* narrowed to roughly 60% of max width */
+    margin: 0 auto;
+    width: 100%;
+}
+
+.txn-view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.txn-view-toggles {
+    display: flex;
+    gap: .75rem;
+}
+
+.txn-view-toggle {
+    background: #1a1d27;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: .5rem 1.2rem;
+    border-radius: 6px;
+    font-size: .85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .2s;
+}
+
+.txn-view-toggle:hover {
+    background: #242836;
+}
+
+.txn-view-toggle.active-exp {
+    background: rgba(239, 68, 68, .1);
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.txn-view-toggle.active-cred {
+    background: rgba(34, 197, 94, .1);
+    border-color: #22c55e;
+    color: #22c55e;
+}
+
+.txn-view-total {
+    text-align: right;
+}
+
+.txn-view-total-label {
+    font-size: .75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: .2rem;
+}
+
+.txn-view-total-val {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.val-exp {
+    color: #ef4444;
+}
+
+.val-cred {
+    color: #22c55e;
+}
+
+.txn-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.txn-pill {
+    background: #1a1d27;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: .4rem .8rem;
+    border-radius: 20px;
+    font-size: .8rem;
+    cursor: pointer;
+    transition: all .2s;
+}
+
+.txn-pill:hover {
+    background: #242836;
+    color: var(--text);
+}
+
+.txn-pill.pill-active {
+    background: rgba(59, 130, 246, .15);
+    border-color: #3b82f6;
+    color: #60a5fa;
+}
+
+.txn-toolbar {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.txn-search-box {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    background: #15171e;
+    border: 1px solid var(--border);
+    padding: .6rem 1rem;
+    border-radius: 8px;
+    color: var(--text-muted);
+}
+
+.txn-search-box input {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: .85rem;
+    width: 100%;
+    outline: none;
+}
+
+.txn-search-box input::placeholder {
+    color: var(--text-muted);
+}
+
+.txn-toolbar-actions {
+    display: flex;
+    gap: .5rem;
+}
+
+.txn-icon-btn {
+    background: #1a1d27;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all .2s;
+}
+
+.txn-icon-btn:hover {
+    background: #242836;
+    color: var(--text);
+}
+
+/* ── Transactions Table ────────────────────────── */
+.txn-table-container {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.txn-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.txn-table th {
+    background: #15171e;
+    padding: .75rem 1rem;
+    font-size: .7rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--border);
+}
+
+.txn-table th:hover {
+    color: var(--text);
+}
+
+.txn-table th.sorted {
+    color: var(--text);
+}
+
+.txn-table td {
+    padding: .75rem 1rem;
+    font-size: .85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, .03);
+    vertical-align: middle;
+}
+
+.txn-table tbody tr {
+    background: var(--bg-card);
+    transition: background .15s;
+}
+
+.txn-table tbody tr:hover {
+    background: #1e2230;
+}
+
+.txn-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.td-date {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    width: 100px;
+}
+
+.td-desc {
+    color: var(--text);
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.td-cat {
+    width: 150px;
+}
+
+.td-cat-badge {
+    display: inline-block;
+    padding: .2rem .6rem;
+    border-radius: 4px;
+    font-size: .7rem;
+    font-weight: 500;
+    border: 1px solid;
+    text-transform: capitalize;
+}
+
+.td-amt {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    width: 120px;
+}
+
+.txt-right {
+    text-align: right;
+}
+
+/* Actions cell */
+.th-actions {
+    width: 80px;
+}
+
+.td-actions {
+    width: 80px;
+    padding-right: 1rem;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.row-action-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: .2rem;
+    opacity: 0;
+    transition: all .15s;
+    line-height: 1;
+}
+
+.txn-table tbody tr:hover .row-action-btn {
+    opacity: 1;
+}
+
+.row-action-btn:hover {
+    color: var(--accent);
+}
+
+.row-action-btn.void-on {
+    opacity: 1;
+    color: #ef4444;
+}
+
+.row-voided td {
+    text-decoration: line-through;
+    opacity: .4;
+}
+
+/* ── Category Picker (Search + List) ───────────── */
+.cat-picker {
+    background: #1e2130;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .5rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    min-width: 220px;
+}
+
+.cat-picker-search {
+    width: 100%;
+    padding: .35rem .5rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: .78rem;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.cat-picker-search:focus {
+    border-color: var(--accent);
+}
+
+.cat-picker-search::placeholder {
+    color: var(--text-muted);
+}
+
+.cat-picker-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.cat-picker-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.cat-picker-list::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
+}
+
+.cat-picker-item {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .35rem .5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background .1s;
+}
+
+.cat-picker-item:hover {
+    background: rgba(108, 114, 203, .15);
+}
+
+.cat-picker-name {
+    flex: 1;
+    font-size: .78rem;
+    text-transform: capitalize;
+}
+
+.cat-picker-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: .75rem;
+    padding: .5rem;
+}
+
+/* Removed old grouping classes */
+
+/* ── New Category Form ─────────────────────────── */
+.cat-picker-new-btn {
+    width: 100%;
+    padding: .3rem .5rem;
+    border-radius: 6px;
+    border: 1px dashed var(--border);
+    background: none;
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: .72rem;
+    cursor: pointer;
+    transition: all .15s;
+    text-align: center;
+}
+
+.cat-picker-new-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.cat-picker-new-form {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    border-top: 1px solid var(--border);
+    padding-top: .35rem;
+}
+
+.cat-picker-color-row {
+    display: flex;
+    gap: .3rem;
+    align-items: center;
+}
+
+.cat-picker-color-swatch {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.cat-picker-hex-input {
+    width: 72px;
+    padding: .2rem .35rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text);
+    font-family: monospace;
+    font-size: .72rem;
+}
+
+.cat-picker-create-btn {
+    padding: .2rem .5rem;
+    border-radius: 4px;
+    border: 1px solid rgba(34, 197, 94, .3);
+    background: none;
+    color: #22c55e;
+    font-family: var(--font);
+    font-size: .7rem;
+    cursor: pointer;
+}
+
+.cat-picker-create-btn:hover {
+    background: rgba(34, 197, 94, .1);
+}
+
+.cat-picker-cancel-btn {
+    padding: .2rem .4rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text-muted);
+    font-size: .7rem;
+    cursor: pointer;
+}
+
+.cat-picker-cancel-btn:hover {
+    color: #ef4444;
+}
+
+/* ── Toast ─────────────────────────────────────── */
+.toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e2130;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .5rem 1rem;
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+    z-index: 10000;
+    animation: toast-in .2s ease;
+    color: var(--text);
+    font-size: .8rem;
+}
+
+.toast-hint {
+    color: var(--text-muted);
+    font-size: .7rem;
+    white-space: nowrap;
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* Removed side-by-side credits table since it's merged into the Transactions tab view */
+
+/* ── Responsive ────────────────────────────────── */
+@media (max-width: 768px) {
+    header {
+        padding: 1rem;
+    }
+
+    main {
+        padding: 1rem;
+    }
+
+    .stats {
+        grid-template-columns: 1fr;
+    }
+
+    .charts {
+        grid-template-columns: 1fr;
+    }
+
+    .txn-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .category-layout {
+        flex-direction: column;
+    }
+}

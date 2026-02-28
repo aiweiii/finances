@@ -60,7 +60,15 @@ func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 				return nil, fmt.Errorf("[%s] error getting transactions for UOB credit card: %w", funcName, err)
 			}
 		} else if bank == "CITI" {
+			txn, err = getTransactionsForCitiCreditCard(row, year)
+			if err != nil {
+				return nil, fmt.Errorf("[%s] error getting transactions for CITI credit card: %w", funcName, err)
+			}
+		}
 
+		// if txn is empty, skip this record
+		if txn.Date.IsZero() {
+			continue
 		}
 
 		if txn.Merchant == "" {
@@ -97,6 +105,9 @@ func getTransactionsForUobCreditCard(row []string, year string) (TxnData, error)
 	date, err := stringToDate(trimmedDate, year)
 	if err != nil {
 		return TxnData{}, fmt.Errorf("[%s] error converting stringified date in raw stmt to expected date format: %w", funcName, err)
+	}
+	if date.IsZero() {
+		return TxnData{}, nil
 	}
 
 	merchant := row[2]
@@ -141,6 +152,9 @@ func getTransactionsForUobDepositAcc(row []string, year string) (TxnData, error)
 	if err != nil {
 		return TxnData{}, fmt.Errorf("[%s] error converting stringified-date in raw stmt to expected date format: %w", funcName, err)
 	}
+	if date.IsZero() {
+		return TxnData{}, nil
+	}
 
 	merchant := row[1]
 	if row[2] != "" && row[3] != "" {
@@ -174,6 +188,89 @@ func getTransactionsForUobDepositAcc(row []string, year string) (TxnData, error)
 	}, nil
 }
 
+func getTransactionsForCitiCreditCard(row []string, year string) (TxnData, error) {
+	funcName := "getTransactionsForCitiCreditCard"
+
+	// skip row if there is no txn date
+	// skip row if there is no amount
+	if row[0] == "" || row[2] == "" {
+		return TxnData{}, nil
+	}
+
+	trimmedDate := strings.ReplaceAll(row[0], " ", "")
+	date, err := stringToDate(trimmedDate, year)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting stringified-date in raw stmt to expected date format: %w", funcName, err)
+	}
+	if date.IsZero() {
+		return TxnData{}, nil
+	}
+
+	merchant := row[1]
+
+	amt := row[2]
+	txnType := "DEBIT"
+
+	if row[2][0:1] == "(" {
+		txnType = "CREDIT"
+		amt = row[2][1 : len(row[2])-2]
+	}
+
+	amtInCents, err := convertToCents(amt)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting amount to cents: %w", funcName, err)
+	}
+
+	return TxnData{
+		Date:     date,
+		Bank:     "",
+		TxnType:  txnType,
+		Value:    amtInCents,
+		Category: "",
+		Merchant: merchant,
+	}, nil
+}
+
 // TODO
-// func getTransactionsForCitiCreditCard(row []string, year string) () {
+// func getTransactionsForChocolateCard(row []string, year string) (TxnData, error) {
+// funcName := "getTransactionsForChocolateCard"
+
+// // skip row if there is no txn date
+// // skip row if there is no amount
+// if row[0] == "" || row[2] == "" {
+// 	return TxnData{}, nil
+// }
+//
+// trimmedDate := strings.ReplaceAll(row[0], " ", "")
+// date, err := stringToDate(trimmedDate, year)
+// if err != nil {
+// 	return TxnData{}, fmt.Errorf("[%s] error converting stringified-date in raw stmt to expected date format: %w", funcName, err)
+// }
+// if date.IsZero() {
+// 	return TxnData{}, nil
+// }
+//
+// merchant := row[1]
+//
+// amt := row[2]
+// txnType := "DEBIT"
+//
+// if row[2][0:1] == "(" {
+// 	txnType = "CREDIT"
+// 	amt = row[2][1:len(row[2])-2]
+// }
+//
+// amtInCents, err := convertToCents(amt)
+// if err != nil {
+// 	return TxnData{}, fmt.Errorf("[%s] error converting amount to cents: %w", funcName, err)
+// }
+//
+// return TxnData{
+// 	Date:     date,
+// 	Bank:     "",
+// 	TxnType:  txnType,
+// 	Value:    amtInCents,
+// 	Category: "",
+// 	Merchant: merchant,
+// }, nil
 // }

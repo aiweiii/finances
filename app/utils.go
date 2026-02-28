@@ -37,7 +37,8 @@ func stringToDate(ddMmm string, yyyy string) (time.Time, error) {
 		ddMmmYyyy,
 		loc)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("error parsing time: %w", err)
+		fmt.Printf("error parsing time for ddMmm: %s; skipping this record\n", ddMmm)
+		return time.Time{}, nil
 	}
 
 	return t, err

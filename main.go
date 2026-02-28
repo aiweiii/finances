@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
 
@@ -52,14 +53,12 @@ func main() {
 		log.Fatalf("error building trie: %v", err)
 	}
 
+	allTxns := []app.TxnData{}
+
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-
-		// if entry.Name() != "uob_sept_2025.csv" {
-		// 	continue
-		// }
 
 		fmt.Println("reading file: ", entry)
 
@@ -68,9 +67,70 @@ func main() {
 			log.Fatalf("error getting transactions: %v", err)
 		}
 
-		err = app.InsertIntoDb(ctx, conn, txns)
-		if err != nil {
-			log.Fatalf("error inserting transactions into db: %v", err)
+		allTxns = append(allTxns, txns...)
+	}
+
+	// Step 1: Read manual merchant overrides from DB (from previous runs)
+	manualOverrides, err := app.GetManualMerchantCategories(ctx, conn)
+	if err != nil {
+		log.Printf("warning: could not read manual overrides: %v", err)
+		manualOverrides = map[string]string{}
+	}
+	if len(manualOverrides) > 0 {
+		fmt.Printf("applying %d manual merchant overrides from DB ...\n", len(manualOverrides))
+		for i := range allTxns {
+			if cat, ok := manualOverrides[allTxns[i].Merchant]; ok {
+				allTxns[i].Category = cat
+			}
 		}
 	}
+
+	// Step 2: Collect unique uncategorised merchants for AI classification
+	uncategorised := map[string]bool{}
+	for _, txn := range allTxns {
+		if txn.Category == "" {
+			uncategorised[txn.Merchant] = true
+		}
+	}
+
+	if len(uncategorised) > 0 {
+		merchants := make([]string, 0, len(uncategorised))
+		for m := range uncategorised {
+			merchants = append(merchants, m)
+		}
+
+		fmt.Printf("categorising %d merchants with AI ...\n", len(merchants))
+
+		aiCategories, err := app.CategoriseWithAI(merchants)
+		if err != nil {
+			log.Printf("warning: AI categorisation failed: %v (continuing without)", err)
+		} else {
+			for i := range allTxns {
+				if allTxns[i].Category == "" {
+					if cat, ok := aiCategories[allTxns[i].Merchant]; ok {
+						allTxns[i].Category = cat
+					}
+				}
+			}
+			fmt.Println("AI categorisation complete")
+		}
+	}
+
+	// Step 3: Insert/upsert all transactions into DB (new rows only, skips existing)
+	err = app.InsertIntoDb(ctx, conn, allTxns)
+	if err != nil {
+		log.Fatalf("error inserting transactions into db: %v", err)
+	}
+
+	// Close single connection, create a pool for concurrent HTTP requests
+	conn.Close(ctx)
+
+	pool, err := pgxpool.New(ctx, os.Getenv("DB_DSN"))
+	if err != nil {
+		log.Fatalf("error creating connection pool: %v", err)
+	}
+	defer pool.Close()
+
+	// Start HTTP server for frontend + API
+	app.StartServer(pool)
 }

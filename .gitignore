@@ -5,7 +5,8 @@
 *.xml
 .DS_Store
 .env*
-!.env.local
 .ipynb_checkpoints/
 .venv/
 todo.txt
+node_modules/
+dist/
