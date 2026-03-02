@@ -2,7 +2,7 @@
 This project is a work in progress.
 
 This is a finance tracking web application. It takes in a PDF, reads the transactions into a structured CSV file, categorises and stores them into a database.
-There is no UI at the moment, iterations are done to first stabilise backend operations (coming very soon - thanks to Antigravity).
+There is no complete UI at the moment, iterations are done to first stabilise backend operations.
 
 ## Background
 This project exists because, to my best knowledge, there are no applications that could let me reliably track all of my
@@ -18,7 +18,7 @@ So for now, I've decided to automate my laziness away as much as possible. Hence
   - The application is smart enough to process PDF (thanks to [Docling](https://docling-project.github.io/docling/concepts/architecture/)) but not smart enough to figure what's the real transaction we wanna capture from the PDF.
   - So this needs to be implemented separately, as demonstrated in `./preprocessor/statements/process.document.ipynb`.
   - Given there's <20 banks in Singapore, we need roughly 5 lines of code * 20 banks to make this application "smart enough" to sufficiently handle the majority use case.
-- [AI CATEGORISATION CMG SOON] Currently, the app does not automatically categorise your spending.
+- Currently, the app does not automatically categorise your spending.
   - You need to manually define categories under `./categories/` by creating files such as `food.txt`, `groceries.txt` or `travel.txt`.
   - Each file should contain a list of merchant names belonging to that category.
   - The app then uses trie-based matching to map a transaction’s merchant description to these categories.
