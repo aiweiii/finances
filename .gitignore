@@ -1,11 +1,12 @@
+!.env.local
 *.csv
 *.idea
 *.pdf
 *.tsv
 *.xml
 .DS_Store
+.claude
 .env*
-!.env.local
 .venv/
-todo.txt
 __pycache__
+todo.txt
