@@ -39,8 +39,6 @@ func main() {
 		log.Fatalf("error setting up db: %v", err)
 	}
 
-	fmt.Println("completed setting up database ...")
-
 	entries, err := os.ReadDir(inputFilePath)
 	if err != nil {
 		log.Fatalf("error reading the directory %s: %v", inputFilePath, err)

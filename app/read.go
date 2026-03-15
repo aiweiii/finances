@@ -60,7 +60,10 @@ func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 				return nil, fmt.Errorf("[%s] error getting transactions for UOB credit card: %w", funcName, err)
 			}
 		} else if bank == "CITI" {
-
+			txn, err = getTransactionsForCitiCreditCard(row, year)
+			if err != nil {
+				return nil, fmt.Errorf("[%s] error getting transactions for CITI credit card: %w", funcName, err)
+			}
 		}
 
 		if txn.Merchant == "" {
@@ -174,6 +177,39 @@ func getTransactionsForUobDepositAcc(row []string, year string) (TxnData, error)
 	}, nil
 }
 
-// TODO
-// func getTransactionsForCitiCreditCard(row []string, year string) () {
-// }
+func getTransactionsForCitiCreditCard(row []string, year string) (TxnData, error) {
+	funcName := "getTransactionsForCitiCreditCard"
+
+	// skip row if there is no txn date
+	dayMonthRegex := regexp.MustCompile("^[0-9]{1,2}\\s*[a-zA-Z]{3}$")
+	matches := dayMonthRegex.FindStringSubmatch(row[0])
+	if len(matches) <= 0 {
+		return TxnData{}, nil
+	}
+
+	trimmedDate := strings.ReplaceAll(row[0], " ", "")
+	date, err := stringToDate(trimmedDate, year)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting stringified date in raw stmt to expected date format: %w", funcName, err)
+	}
+
+	amt := row[2]
+	txnType := "DEBIT"
+	if strings.HasPrefix(amt, "(") {
+		amt = strings.Trim(amt, "()")
+		txnType = "CREDIT"
+	}
+	amtInCents, err := convertToCents(amt)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting amount to cents: %w", funcName, err)
+	}
+
+	return TxnData{
+		Date:     date,
+		Bank:     "",
+		TxnType:  txnType,
+		Value:    amtInCents,
+		Category: "",
+		Merchant: row[1],
+	}, nil
+}
