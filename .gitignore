@@ -8,3 +8,4 @@
 !.env.local
 .venv/
 todo.txt
+__pycache__
