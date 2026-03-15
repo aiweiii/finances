@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const result = await pool.query(
     `SELECT id, txn_date, txn_type, category, merchant, amount, bank
      FROM expenses
-     WHERE txn_type = 'DEBIT' AND ${dateFilter}
+     WHERE ${dateFilter}
      ORDER BY txn_date DESC`,
     params
   );

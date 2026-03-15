@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "month or year required" }, { status: 400 });
   }
 
-  const [statsResult, prevResult, topCatResult, daysResult] = await Promise.all([
+  const [statsResult, prevResult, topCatResult, daysResult, creditResult] = await Promise.all([
     pool.query(
       `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
        FROM expenses WHERE txn_type = 'DEBIT' AND ${dateFilter}`,
@@ -49,6 +49,11 @@ export async function GET(req: NextRequest) {
        FROM expenses WHERE txn_type = 'DEBIT' AND ${dateFilter}`,
       params
     ),
+    pool.query(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM expenses WHERE txn_type = 'CREDIT' AND ${dateFilter}`,
+      params
+    ),
   ]);
 
   const total = parseFloat(statsResult.rows[0].total);
@@ -56,9 +61,11 @@ export async function GET(req: NextRequest) {
   const prevTotal = parseFloat(prevResult.rows[0].total);
   const topCat = topCatResult.rows[0];
   const days = parseInt(daysResult.rows[0].days) || 1;
+  const totalCredited = parseFloat(creditResult.rows[0].total);
 
   return NextResponse.json({
     total_spent: total,
+    total_credited: totalCredited,
     transaction_count: count,
     top_category: topCat?.category || "N/A",
     top_category_amount: topCat ? parseFloat(topCat.total) : 0,

@@ -167,13 +167,13 @@ export default function Home() {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Transactions
+                        Total Credited
                       </CardTitle>
-                      <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                      <ArrowRightLeft className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
-                        {stats.transaction_count}
+                      <div className="text-2xl font-bold text-emerald-500">
+                        +{formatCurrency(stats.total_credited)}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         this period
@@ -332,6 +332,36 @@ export default function Home() {
                 <CardTitle className="text-sm font-medium">
                   Transactions ({transactions.length})
                 </CardTitle>
+                {transactions.length > 0 && (
+                  <div className="flex gap-6 pt-2 text-sm">
+                    <span className="text-red-500 font-medium">
+                      Debited: -{formatCurrency(
+                        transactions
+                          .filter((t) => t.txn_type === "DEBIT")
+                          .reduce((sum, t) => sum + t.amount, 0)
+                      )}
+                    </span>
+                    <span className="text-emerald-500 font-medium">
+                      Credited: +{formatCurrency(
+                        transactions
+                          .filter((t) => t.txn_type === "CREDIT")
+                          .reduce((sum, t) => sum + t.amount, 0)
+                      )}
+                    </span>
+                    <span className="text-muted-foreground font-medium">
+                      Net: {(() => {
+                        const debited = transactions
+                          .filter((t) => t.txn_type === "DEBIT")
+                          .reduce((sum, t) => sum + t.amount, 0);
+                        const credited = transactions
+                          .filter((t) => t.txn_type === "CREDIT")
+                          .reduce((sum, t) => sum + t.amount, 0);
+                        const net = credited - debited;
+                        return `${net >= 0 ? "+" : "-"}${formatCurrency(Math.abs(net))}`;
+                      })()}
+                    </span>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <Table>
@@ -339,26 +369,33 @@ export default function Home() {
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead>Merchant</TableHead>
+                      <TableHead>Amount</TableHead>
                       <TableHead>Category</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {transactions.map((txn) => (
                       <TableRow key={txn.id}>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="text-muted-foreground whitespace-nowrap">
                           {txn.txn_date}
                         </TableCell>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium break-words">
                           {txn.merchant}
+                        </TableCell>
+                        <TableCell
+                          className={`font-medium whitespace-nowrap ${
+                            txn.txn_type === "CREDIT"
+                              ? "text-emerald-500"
+                              : "text-red-500"
+                          }`}
+                        >
+                          {txn.txn_type === "CREDIT" ? "+" : "-"}
+                          {formatCurrency(txn.amount)}
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="capitalize">
                             {txn.category}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(txn.amount)}
                         </TableCell>
                       </TableRow>
                     ))}

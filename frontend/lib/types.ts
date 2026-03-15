@@ -10,6 +10,7 @@ export interface Expense {
 
 export interface MonthlyStats {
   total_spent: number;
+  total_credited: number;
   transaction_count: number;
   top_category: string;
   top_category_amount: number;
