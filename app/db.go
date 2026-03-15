@@ -19,6 +19,7 @@ func MustSetup(ctx context.Context, conn *pgx.Conn) error {
 		if err != nil {
 			return fmt.Errorf("error dropping table: %w", err)
 		}
+
 		fmt.Println("dropped table")
 	}
 
@@ -26,13 +27,14 @@ func MustSetup(ctx context.Context, conn *pgx.Conn) error {
 	_, err := conn.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS expenses (
 	    id VARCHAR(255) PRIMARY KEY,
-	    txn_date TIMESTAMPTZ,
+	    txn_date DATE,
 	    txn_type VARCHAR(255),
 	    category VARCHAR(255),
 	    merchant VARCHAR(255),
 	    amount DECIMAL(10,2),
 	    bank VARCHAR(255),
-	    raw_location VARCHAR(255) UNIQUE
+	    raw_location VARCHAR(255) UNIQUE,
+	    modified_date TIMESTAMPTZ DEFAULT now()
 	)`)
 	if err != nil {
 		return fmt.Errorf("error creating table: %w", err)

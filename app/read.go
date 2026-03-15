@@ -36,6 +36,13 @@ func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 	bank := strings.ToUpper(parts[0])
 	year := parts[2]
 
+	// Parse statement month from filename to detect cross-year transactions
+	stmtMonthTime, err := time.Parse("Jan", strings.Title(strings.ToLower(parts[1])))
+	if err != nil {
+		return nil, fmt.Errorf("[%s] error parsing statement month from filename: %w", funcName, err)
+	}
+	stmtMonth := stmtMonthTime.Month()
+
 	isDepositAccTxn := false
 	if len(parts) > 3 {
 		isDepositAccTxn = true
@@ -64,10 +71,20 @@ func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 			if err != nil {
 				return nil, fmt.Errorf("[%s] error getting transactions for CITI credit card: %w", funcName, err)
 			}
+		} else if bank == "CHOCOLATE" {
+			txn, err = getTransactionsForChocolateAcc(row, year)
+			if err != nil {
+				return nil, fmt.Errorf("[%s] error getting transactions for Chocolate acc: %w", funcName, err)
+			}
 		}
 
 		if txn.Merchant == "" {
 			continue
+		}
+
+		// Fix cross-year transactions (e.g., Dec txn in a Jan statement should be previous year)
+		if stmtMonth == time.January && txn.Date.Month() == time.December {
+			txn.Date = txn.Date.AddDate(-1, 0, 0)
 		}
 
 		// match merchants to an expected category
@@ -91,25 +108,20 @@ func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 func getTransactionsForUobCreditCard(row []string, year string) (TxnData, error) {
 	funcName := "getTransactionsForUobCreditCard"
 
-	// skip row if there is no txn date
-	if row[1] == "" {
-		return TxnData{}, nil
-	}
-
-	trimmedDate := strings.ReplaceAll(row[1], " ", "")
+	trimmedDate := strings.ReplaceAll(row[0], " ", "")
 	date, err := stringToDate(trimmedDate, year)
 	if err != nil {
 		return TxnData{}, fmt.Errorf("[%s] error converting stringified date in raw stmt to expected date format: %w", funcName, err)
 	}
 
-	merchant := row[2]
+	merchant := row[1]
 	removeRefNoRegex := regexp.MustCompile("^(.*)\\s*Ref\\s*No\\b")
 	matches := removeRefNoRegex.FindStringSubmatch(merchant)
 	if len(matches) > 0 {
 		merchant = matches[1]
 	}
 
-	amt := row[3]
+	amt := row[2]
 	txnType := "DEBIT"
 	if strings.Contains(amt, "CR") {
 		amt = strings.TrimSuffix(strings.TrimSpace(amt), "CR")
@@ -133,11 +145,6 @@ func getTransactionsForUobCreditCard(row []string, year string) (TxnData, error)
 
 func getTransactionsForUobDepositAcc(row []string, year string) (TxnData, error) {
 	funcName := "getTransactionsForUobDepositAcc"
-
-	// skip row if there is no txn date
-	if row[0] == "" {
-		return TxnData{}, nil
-	}
 
 	trimmedDate := strings.ReplaceAll(row[0], " ", "")
 	date, err := stringToDate(trimmedDate, year)
@@ -177,15 +184,53 @@ func getTransactionsForUobDepositAcc(row []string, year string) (TxnData, error)
 	}, nil
 }
 
-func getTransactionsForCitiCreditCard(row []string, year string) (TxnData, error) {
-	funcName := "getTransactionsForCitiCreditCard"
+func getTransactionsForChocolateAcc(row []string, year string) (TxnData, error) {
+	funcName := "getTransactionsForChocolateAcc"
 
-	// skip row if there is no txn date
-	dayMonthRegex := regexp.MustCompile("^[0-9]{1,2}\\s*[a-zA-Z]{3}$")
-	matches := dayMonthRegex.FindStringSubmatch(row[0])
-	if len(matches) <= 0 {
+	if row[0] == "" {
 		return TxnData{}, nil
 	}
+
+	trimmedDate := strings.ReplaceAll(row[0], " ", "")
+	date, err := stringToDate(trimmedDate, year)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting stringified-date in raw stmt to expected date format: %w", funcName, err)
+	}
+
+	merchant := row[1]
+	if row[2] != "" && row[3] != "" {
+		return TxnData{}, fmt.Errorf("[%s] unexpected row in chocolate file, check in file for merchant: %s", funcName, merchant)
+	}
+
+	amt := ""
+	txnType := ""
+
+	// Col 2 = In (credit), Col 3 = Out (debit)
+	if row[2] != "" {
+		amt = row[2]
+		txnType = "CREDIT"
+	} else if row[3] != "" {
+		amt = row[3]
+		txnType = "DEBIT"
+	}
+
+	amtInCents, err := convertToCents(amt)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting amount to cents: %w", funcName, err)
+	}
+
+	return TxnData{
+		Date:     date,
+		Bank:     "",
+		TxnType:  txnType,
+		Value:    amtInCents,
+		Category: "",
+		Merchant: merchant,
+	}, nil
+}
+
+func getTransactionsForCitiCreditCard(row []string, year string) (TxnData, error) {
+	funcName := "getTransactionsForCitiCreditCard"
 
 	trimmedDate := strings.ReplaceAll(row[0], " ", "")
 	date, err := stringToDate(trimmedDate, year)

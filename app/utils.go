@@ -31,11 +31,10 @@ func readCsvFile(filePath string) ([][]string, error) {
 func stringToDate(ddMmm string, yyyy string) (time.Time, error) {
 	ddMmmYyyy := strings.ToUpper(ddMmm) + yyyy
 
-	loc, _ := time.LoadLocation("Asia/Singapore")
 	t, err := time.ParseInLocation(
 		"02Jan2006", // Strictly referencing layout: Mon Jan 2 15:04:05 MST 2006  (aka 1 2 3 4 5 6 -7)
 		ddMmmYyyy,
-		loc)
+		time.UTC)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("error parsing time: %w", err)
 	}
@@ -60,27 +59,3 @@ func generateTxnId(fileNameAndRow string) string {
 	sum := sha256.Sum256([]byte(fileNameAndRow))
 	return hex.EncodeToString(sum[:4]) // Get first 4 bytes of 32-byte hash
 }
-
-// func writeToTsv(outputFileName string, transactions []TxnData) {
-//	outputFile, _ := os.Create(outputFileName)
-//	defer outputFile.Close()
-//
-//	writer := csv.NewWriter(outputFile)
-//	writer.Comma = '\t'
-//	defer writer.Flush()
-//
-//	writer.Write([]string{"txn_date", "category", "merchant", "amount", "bank"})
-//
-//	for _, txn := range transactions {
-//		row := []string{
-//			txn.Date.Format("2006-01-02"),
-//			txn.Category,
-//			txn.Merchant,
-//			txn.Value,
-//			txn.Bank,
-//		}
-//		if err := writer.Write(row); err != nil {
-//			fmt.Errorf("failed to write row: %w", err)
-//		}
-//	}
-// }
