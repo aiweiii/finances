@@ -86,6 +86,9 @@ def extract_chocolate_transactions(df) -> list[tuple]:
         in_raw = str(row.iloc[2]).strip() if len(row) > 2 else ""
         out_raw = str(row.iloc[3]).strip() if len(row) > 3 else ""
 
+        desc_match = re.match(r"(?:Card transaction:)?\s(.+)", desc_cell)
+        desc_cell = desc_match.group(1).strip() if desc_match else desc_cell
+
         # Strip S$ prefix
         in_match = _SGD_AMT_RE.search(in_raw)
         out_match = _SGD_AMT_RE.search(out_raw)
