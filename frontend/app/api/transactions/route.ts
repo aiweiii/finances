@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   }
 
   const result = await pool.query(
-    `SELECT id, txn_date, txn_type, category, merchant, amount, bank
+    `SELECT id, txn_date, txn_type, category, merchant, amount, bank, is_deposit_account
      FROM expenses
      WHERE ${dateFilter}
      ORDER BY txn_date DESC`,

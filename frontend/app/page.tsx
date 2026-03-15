@@ -33,6 +33,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { Button } from "@/components/ui/button";
 import type { MonthlyStats, Expense, DailySpending } from "@/lib/types";
 import {
   TrendingDown,
@@ -50,9 +51,15 @@ export default function Home() {
   const [stats, setStats] = useState<MonthlyStats | null>(null);
   const [spending, setSpending] = useState<DailySpending[]>([]);
   const [transactions, setTransactions] = useState<Expense[]>([]);
+  const [accounts, setAccounts] = useState<
+    { bank: string; is_deposit_account: boolean; label: string }[]
+  >([]);
+  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(
+    new Set()
+  );
   const [loading, setLoading] = useState(true);
 
-  // Fetch available months
+  // Fetch available months and accounts
   useEffect(() => {
     fetch("/api/months")
       .then((r) => r.json())
@@ -61,6 +68,23 @@ export default function Home() {
         if (data.length > 0) {
           setSelectedPeriod(data[0].month_key);
         }
+      });
+
+    fetch("/api/accounts")
+      .then((r) => r.json())
+      .then((data: { bank: string; is_deposit_account: boolean }[]) => {
+        const bankCounts = new Map<string, number>();
+        data.forEach((a) =>
+          bankCounts.set(a.bank, (bankCounts.get(a.bank) || 0) + 1)
+        );
+
+        const labeled = data.map((a) => ({
+          ...a,
+          label: a.is_deposit_account
+            ? `${a.bank} Deposit`
+            : `${a.bank} CC`,
+        }));
+        setAccounts(labeled);
       });
   }, []);
 
@@ -72,6 +96,18 @@ export default function Home() {
     }
     return `?month=${selectedPeriod}`;
   }, [selectedPeriod]);
+
+  const toggleAccount = (key: string) => {
+    setSelectedAccounts((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
 
   // Fetch data when period changes
   useEffect(() => {
@@ -90,6 +126,14 @@ export default function Home() {
       setLoading(false);
     });
   }, [selectedPeriod, getParams]);
+
+  // Client-side filtered transactions
+  const filteredTransactions =
+    selectedAccounts.size === 0
+      ? transactions
+      : transactions.filter((t) =>
+          selectedAccounts.has(`${t.bank}_${t.is_deposit_account}`)
+        );
 
   // Derive available years from months
   const years = [...new Set(months.map((m) => m.month_key.slice(0, 4)))];
@@ -327,33 +371,60 @@ export default function Home() {
 
           {/* Transactions Tab */}
           <TabsContent value="transactions">
+            {accounts.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {accounts.map((acct) => {
+                  const key = `${acct.bank}_${acct.is_deposit_account}`;
+                  const isActive = selectedAccounts.has(key);
+                  return (
+                    <Button
+                      key={key}
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleAccount(key)}
+                    >
+                      {acct.label}
+                    </Button>
+                  );
+                })}
+                {selectedAccounts.size > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedAccounts(new Set())}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            )}
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm font-medium">
-                  Transactions ({transactions.length})
+                  Transactions ({filteredTransactions.length})
                 </CardTitle>
-                {transactions.length > 0 && (
+                {filteredTransactions.length > 0 && (
                   <div className="flex gap-6 pt-2 text-sm">
                     <span className="text-red-500 font-medium">
                       Debited: -{formatCurrency(
-                        transactions
+                        filteredTransactions
                           .filter((t) => t.txn_type === "DEBIT")
                           .reduce((sum, t) => sum + t.amount, 0)
                       )}
                     </span>
                     <span className="text-emerald-500 font-medium">
                       Credited: +{formatCurrency(
-                        transactions
+                        filteredTransactions
                           .filter((t) => t.txn_type === "CREDIT")
                           .reduce((sum, t) => sum + t.amount, 0)
                       )}
                     </span>
                     <span className="text-muted-foreground font-medium">
                       Net: {(() => {
-                        const debited = transactions
+                        const debited = filteredTransactions
                           .filter((t) => t.txn_type === "DEBIT")
                           .reduce((sum, t) => sum + t.amount, 0);
-                        const credited = transactions
+                        const credited = filteredTransactions
                           .filter((t) => t.txn_type === "CREDIT")
                           .reduce((sum, t) => sum + t.amount, 0);
                         const net = credited - debited;
@@ -374,7 +445,7 @@ export default function Home() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.map((txn) => (
+                    {filteredTransactions.map((txn) => (
                       <TableRow key={txn.id}>
                         <TableCell className="text-muted-foreground whitespace-nowrap">
                           {txn.txn_date}
@@ -399,7 +470,7 @@ export default function Home() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {transactions.length === 0 && !loading && (
+                    {filteredTransactions.length === 0 && !loading && (
                       <TableRow>
                         <TableCell
                           colSpan={4}

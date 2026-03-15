@@ -6,6 +6,7 @@ export interface Expense {
   merchant: string;
   amount: number;
   bank: string;
+  is_deposit_account: boolean;
 }
 
 export interface MonthlyStats {
