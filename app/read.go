@@ -10,14 +10,15 @@ import (
 )
 
 type TxnData struct {
-	Id          string // Just a hash of RawLocation for lookup purposes
-	Date        time.Time
-	Bank        string
-	TxnType     string // CREDIT/DEBIT
-	Value       int64
-	Category    string
-	Merchant    string
-	RawLocation string
+	Id               string // Just a hash of RawLocation for lookup purposes
+	Date             time.Time
+	Bank             string
+	TxnType          string // CREDIT/DEBIT
+	Value            int64
+	Category         string
+	Merchant         string
+	RawLocation      string
+	IsDepositAccount bool
 }
 
 var (
@@ -96,6 +97,7 @@ func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 		}
 		txn.Category = category
 		txn.Bank = bank
+		txn.IsDepositAccount = isDepositAccTxn
 		txn.RawLocation = fileName + "_" + strconv.Itoa(rowNo)
 		txn.Id = generateTxnId(txn.RawLocation)
 

@@ -33,6 +33,7 @@ func MustSetup(ctx context.Context, conn *pgx.Conn) error {
 	    merchant VARCHAR(255),
 	    amount DECIMAL(10,2),
 	    bank VARCHAR(255),
+	    is_deposit_account BOOLEAN DEFAULT FALSE,
 	    raw_location VARCHAR(255) UNIQUE,
 	    modified_date TIMESTAMPTZ DEFAULT now()
 	)`)
@@ -50,11 +51,11 @@ func InsertIntoDb(ctx context.Context, conn *pgx.Conn, txns []TxnData) error {
 	}
 	defer tx.Rollback(ctx) // Auto-rollback if not committed
 
-	sqlStmt := `INSERT INTO expenses (id, txn_date, txn_type, category, merchant, amount, bank, raw_location) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+	sqlStmt := `INSERT INTO expenses (id, txn_date, txn_type, category, merchant, amount, bank, is_deposit_account, raw_location) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	for _, txn := range txns {
 		amountInFloat := fmt.Sprintf("%.2f", float64(txn.Value)/100)
-		_, err = tx.Exec(ctx, sqlStmt, txn.Id, txn.Date, txn.TxnType, txn.Category, txn.Merchant, amountInFloat, txn.Bank, txn.RawLocation)
+		_, err = tx.Exec(ctx, sqlStmt, txn.Id, txn.Date, txn.TxnType, txn.Category, txn.Merchant, amountInFloat, txn.Bank, txn.IsDepositAccount, txn.RawLocation)
 		if err != nil {
 			return fmt.Errorf("error executing statement: %w", err)
 		}
