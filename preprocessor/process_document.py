@@ -1,137 +1,172 @@
+import csv
 import logging
+import os
+import re
+import shutil
 import time
 from pathlib import Path
 
 import camelot
-import pandas as pd
-from IPython.display import display
 
 _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-output_dir = Path("scratch")
 
-def is_float(x):
-    cleaned = x.replace(",", "").replace("(", "").replace(")", "").replace("CR", "").strip()
-    try:
-        float(cleaned)
-        return True
-    except:
-        return False
+def get_file_path(*args):
+    return os.path.join(os.path.dirname(__file__), *args)
 
 
-def clean_newlines(df):
-    """Replace newlines within cell values with spaces."""
-    return df.apply(lambda col: col.str.replace("\n", " ", regex=False) if col.dtype == object else col)
+BANK_PATTERNS = {
+    "UOB": r"^{date}\s*({date})\s*({merchant})\s*({amt_uob}).*$",
+    "CITI": r"^({date})({merchant})({amt_citi}).*$",
+}
 
 
-def merge_continuation_rows(df):
-    """Merge multi-line descriptions: rows where col 0 (date) is empty are
-    continuation lines whose description should be appended to the previous row."""
-    merged = []
+def _build_regex(pattern: str) -> str:
+    date = r"[0-9]{1,2}\s*[a-zA-Z]{3}"
+    merchant = r".+?"
+    return pattern.format(
+        date=date,
+        merchant=merchant,
+        amt_uob=r"\d+(?:,\d{3})*\.\d{2}(?:\sCR)?",
+        amt_citi=r"\(?\d+(?:,\d{3})*\.\d{2}\)?",
+    )
+
+
+_DATE_RE = re.compile(r"[0-9]{1,2}\s*[A-Za-z]{3}")
+_AMT_RE = re.compile(r"\d+(?:,\d{3})*\.\d{2}")
+_SGD_AMT_RE = re.compile(r"S?\$(\d+(?:,\d{3})*\.\d{2})")
+
+
+def extract_uob_deposit_transactions(df) -> list[tuple]:
+    """Column-based extraction for UOB deposit statements.
+
+    Camelot columns: Date(0) | Description(1) | Withdrawals(2) | Deposits(3) | Balance(4)
+    Output tuples:   (date,    merchant,         withdrawal,       deposit)
+    One of withdrawal/deposit will be empty string.
+    """
+    results = []
+
     for _, row in df.iterrows():
-        if row[0].strip() == "" and merged:
-            # Append description text to the previous row's description column
-            merged[-1][1] = (merged[-1][1] + " " + row[1]).strip()
-        else:
-            merged.append(list(row))
-    return pd.DataFrame(merged, columns=df.columns)
+        date_cell = str(row.iloc[0]).strip() if len(row) > 0 else ""
+        desc_cell = str(row.iloc[1]).strip() if len(row) > 1 else ""
+        withdrawal = str(row.iloc[2]).strip() if len(row) > 2 else ""
+        deposit = str(row.iloc[3]).strip() if len(row) > 3 else ""
 
-
-def filter_uob_deposit(df):
-    """Keep rows where date is non-empty and at least one of col 2/3 is a float."""
-    drop_idx = []
-    for index, row in df.iterrows():
-        if len(row[0].strip()) == 0 or (not is_float(row[2]) and not is_float(row[3])):
-            drop_idx.append(index)
-    return df.drop(drop_idx)
-
-
-def filter_uob_cc(df):
-    """Keep rows where trans date (col 1) is non-empty and amount (col 3) is a float."""
-    drop_idx = []
-    for index, row in df.iterrows():
-        if row[1].strip() == "" or not is_float(row[3]):
-            drop_idx.append(index)
-    return df.drop(drop_idx)
-
-
-def filter_citi(df):
-    """Keep rows where date (col 0) is non-empty and amount (last col) is a float."""
-    drop_idx = []
-    last_column = expected_cols - 1 # TODO: this should be expected col
-    for index, row in df.iterrows():
-        print(f"index: {index}, row[0]: {row[0]}, row[1]: {row[1]}, row[2]: {row[2]}, last_col: {row[last_column]}")
-        if (row[0].strip() == "" or
-            not is_float(row[last_column])
+        if (_DATE_RE.fullmatch(date_cell) and
+                (_AMT_RE.fullmatch(withdrawal) or
+                 _AMT_RE.fullmatch(deposit)
+                )
         ):
-            drop_idx.append(index)
-    return df.drop(drop_idx)
+            # New transaction row
+            results.append((date_cell, desc_cell, withdrawal, deposit))
+        elif results and desc_cell:
+            # Continuation row: append description to previous transaction
+            prev = list(results[-1])
+            prev[1] = prev[1] + " " + desc_cell
+            results[-1] = tuple(prev)
+    return results
 
 
-for file in sorted(Path("./statements").iterdir()):
-    if not str(file).endswith(".pdf"):
-        continue
+def extract_chocolate_transactions(df) -> list[tuple]:
+    """Column-based extraction for Chocolate Finance statements.
 
-    bank = Path(file).stem.split("_")[0].upper()
-    is_deposit = "deposit" in str(file)
+    Camelot columns: Date(0) | Transaction(1) | In(2) | Out(3) | Balance(4)
+    Output tuples:   (date,    merchant,         in_amt,  out_amt)
+    One of in_amt/out_amt will be empty string. S$ prefix is stripped.
+    """
+    results = []
 
-    if str(file) != "statements/citi_jan_2026.pdf":
-        continue
+    for _, row in df.iterrows():
+        if len(row) > 5:
+            continue
 
-    # Determine expected column count for transaction tables
-    if bank == "UOB" and is_deposit:
-        expected_cols = 5  # date, desc, withdrawal, deposit, balance
-    elif bank == "UOB":
-        expected_cols = 4  # post_date, trans_date, description, amount
-    elif bank == "CITI":
-        expected_cols = 3  # date, description, (overflow), amount
-    else:
-        _log.warning(f"Skipping unsupported bank: {bank} ({file})")
-        continue
+        date_cell = str(row.iloc[0]).strip() if len(row) > 0 else ""
+        desc_cell = str(row.iloc[1]).strip() if len(row) > 1 else ""
+        in_raw = str(row.iloc[2]).strip() if len(row) > 2 else ""
+        out_raw = str(row.iloc[3]).strip() if len(row) > 3 else ""
 
-    start_time = time.time()
-    _log.info(f"Processing {file}")
+        # Strip S$ prefix
+        in_match = _SGD_AMT_RE.search(in_raw)
+        out_match = _SGD_AMT_RE.search(out_raw)
+        in_amt = in_match.group(1) if in_match else ""
+        out_amt = out_match.group(1) if out_match else ""
 
-    tables = camelot.read_pdf(str(file), pages="all", flavor="stream")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    doc_filename = Path(file).stem
+        if _DATE_RE.fullmatch(date_cell) and \
+                not _DATE_RE.fullmatch(desc_cell) and \
+                (in_amt or out_amt):
+            results.append((date_cell, desc_cell, in_amt, out_amt))
+    return results
 
-    frames = []
 
-    for table_ix, table in enumerate(tables):
-        df = table.df
-        df.columns = range(len(df.columns))
+def extract_transactions(df, bank_key: str) -> list[tuple]:
+    regex = _build_regex(BANK_PATTERNS[bank_key])
+    results = []
 
-        # TODO remove: this is incorrect, we might skip legitimate transactions
-        # Skip non-transaction tables by column count
-        # if len(df.columns) != expected_cols:
-        #     continue
+    for _, row in df.iterrows():
+        line = " ".join(str(cell) for cell in row)
+        matches = re.findall(regex, line, re.DOTALL | re.MULTILINE)
+        if len(matches) > 1:
+            _log.warning("detected a column with more than one match")
+        elif len(matches) == 1:
+            results.append(matches[0])
+    return results
 
-        # Clean newlines within cells, then merge continuation rows
-        df = clean_newlines(df)
-        df = merge_continuation_rows(df)
 
-        # Apply bank-specific row filtering
-        if bank == "UOB" and is_deposit:
-            df = filter_uob_deposit(df)
-        elif bank == "UOB":
-            df = filter_uob_cc(df)
-        elif bank == "CITI":
-            df = filter_citi(df)
+def write_to_csv(lst: list[tuple], filename):
+    path = get_file_path("scratch", f"{filename}.csv")
+    cleaned = []
+    for row in lst:
+        cleaned_row = list(row)
+        # merchant is always the second field
+        cleaned_row[1] = cleaned_row[1].replace("\n", " ").strip()
+        cleaned.append(cleaned_row)
 
-        df = df.reset_index(drop=True)
-        print("displaying the dataframe ...")
-        display(df)
-        frames.append(df)
+    with open(path, "w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerows(cleaned)
 
-    if frames:
-        mainframe = pd.concat(frames, ignore_index=True)
-        element_csv_filename = output_dir / f"{doc_filename}.csv"
-        _log.info(f"Saving CSV table to {element_csv_filename}")
-        mainframe.to_csv(element_csv_filename, index=False)
-    else:
-        _log.warning(f"No transaction tables found for {file}")
 
-    elapsed = time.time() - start_time
-    _log.info(f"Done processing {file} in {elapsed:.2f} seconds.")
+def main():
+    # Delete and recreate `/scratch` directory
+    output_dir = get_file_path("scratch")
+    shutil.rmtree(output_dir, ignore_errors=True)
+    os.makedirs(output_dir, exist_ok=True)
+
+    for file in sorted(os.listdir(get_file_path("statements"))):
+        if not str(file).endswith(".pdf"):
+            continue
+
+        bank = Path(file).stem.split("_")[0].upper()
+        is_deposit = "deposit" in str(file)
+
+        start_time = time.time()
+        _log.info(f"Processing {file}")
+
+        tables = camelot.read_pdf(get_file_path("statements", str(file)), pages="all", flavor="stream")
+        filename_without_extension = Path(file).stem
+
+        all_transactions = []
+
+        for table_ix, table in enumerate(tables):
+            df = table.df
+            df.columns = range(len(df.columns))
+
+            # Apply bank-specific row filtering
+            if bank == "UOB" and is_deposit:
+                all_transactions.extend(extract_uob_deposit_transactions(df))
+            elif bank == "UOB":
+                all_transactions.extend(extract_transactions(df, "UOB"))
+            elif bank == "CITI":
+                all_transactions.extend(extract_transactions(df, "CITI"))
+            elif bank == "CHOCOLATE":
+                all_transactions.extend(extract_chocolate_transactions(df))
+
+        write_to_csv(all_transactions, filename=filename_without_extension)
+
+        elapsed = time.time() - start_time
+        _log.info(f"Done processing {file} in {elapsed:.2f} seconds.")
+
+
+if __name__ == "__main__":
+    main()

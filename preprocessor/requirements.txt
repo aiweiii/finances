@@ -1,1 +1,2 @@
 camelot-py==1.0.9
+pytest==9.0.2
