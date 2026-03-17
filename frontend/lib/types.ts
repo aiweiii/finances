@@ -7,6 +7,7 @@ export interface Expense {
   amount: number;
   bank: string;
   is_deposit_account: boolean;
+  ignored: boolean;
 }
 
 export interface MonthlyStats {
@@ -15,6 +16,7 @@ export interface MonthlyStats {
   transaction_count: number;
   top_category: string;
   top_category_amount: number;
+  top_categories: { category: string; amount: number }[];
   avg_daily_spend: number;
   prev_month_total: number;
 }
