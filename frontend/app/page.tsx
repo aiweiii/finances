@@ -30,13 +30,60 @@ import {
 import { Button } from "@/components/ui/button";
 import type { MonthlyStats, Expense, DailySpending } from "@/lib/types";
 import {
-  TrendingDown,
-  TrendingUp,
-  ArrowRightLeft,
   ArrowUpDown,
-  Crown,
-  CalendarDays,
+  Eye,
+  EyeOff,
+  Star,
+  CreditCard,
+  Landmark,
+  LayoutGrid,
 } from "lucide-react";
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  food: "🍕",
+  transport: "🚌",
+  groceries: "🛒",
+  shopping: "🛍️",
+  entertainment: "🎬",
+  health: "💊",
+  utilities: "💡",
+  travel: "✈️",
+  education: "📚",
+  subscription: "🔄",
+  gifts: "🎁",
+  insurance: "🛡️",
+  allowance: "💰",
+  enrichment: "🧠",
+  investment: "📈",
+  lifestyle: "🥾",
+  medical: "🏥",
+  misc: "🗂️",
+  sports: "🎾",
+  "N/A": "❓",
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  food: "border-rose-400 text-rose-700",
+  transport: "border-blue-400 text-blue-700",
+  groceries: "border-green-400 text-green-700",
+  shopping: "border-purple-400 text-purple-700",
+  entertainment: "border-yellow-400 text-yellow-700",
+  health: "border-pink-400 text-pink-700",
+  utilities: "border-orange-400 text-orange-700",
+  travel: "border-cyan-400 text-cyan-700",
+  education: "border-indigo-400 text-indigo-700",
+  subscription: "border-teal-400 text-teal-700",
+  gifts: "border-amber-400 text-amber-700",
+  insurance: "border-slate-400 text-slate-700",
+  allowance: "border-emerald-400 text-emerald-700",
+  enrichment: "border-violet-400 text-violet-700",
+  investment: "border-sky-400 text-sky-700",
+  lifestyle: "border-lime-400 text-lime-700",
+  medical: "border-red-400 text-red-700",
+  misc: "border-zinc-400 text-zinc-700",
+  sports: "border-green-500 text-green-800",
+  "N/A": "border-gray-400 text-gray-500",
+};
 
 export default function Home() {
   const [months, setMonths] = useState<{ month_key: string; label: string }[]>(
@@ -63,6 +110,7 @@ export default function Home() {
   const [categorySearch, setCategorySearch] = useState("");
   const [sortKey, setSortKey] = useState<"txn_date" | "merchant" | "amount" | "category">("txn_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [hideIgnored, setHideIgnored] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Fetch available months and accounts
@@ -190,6 +238,9 @@ export default function Home() {
     if (selectedCategories.size > 0 && !selectedCategories.has(t.category)) {
       return false;
     }
+    if (hideIgnored && t.ignored) {
+      return false;
+    }
     return true;
   });
 
@@ -253,7 +304,7 @@ export default function Home() {
                   className={cn(
                     "w-full text-left px-2 py-1.5 text-sm font-bold rounded-md transition-colors",
                     selectedPeriod === year
-                      ? "bg-accent text-accent-foreground"
+                      ? "bg-slate-800 text-white"
                       : "hover:bg-accent/50"
                   )}
                 >
@@ -266,7 +317,7 @@ export default function Home() {
                     className={cn(
                       "w-full text-left pl-5 pr-2 py-1 text-sm rounded-md transition-colors",
                       selectedPeriod === m.month_key
-                        ? "bg-accent text-accent-foreground font-medium"
+                        ? "bg-slate-800 text-white font-medium"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                     )}
                   >
@@ -302,30 +353,39 @@ export default function Home() {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             {categories.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {categories.map((cat) => {
-                  const isExcluded = excludedCategories.has(cat);
-                  return (
+              <div className="rounded-lg border p-4">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Exclude Categories</span>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((cat) => {
+                    const isExcluded = excludedCategories.has(cat);
+                    const emoji = CATEGORY_EMOJI[cat] ?? "";
+                    const colorClass = CATEGORY_COLORS[cat] ?? "";
+                    return (
+                      <Button
+                        key={cat}
+                        variant={isExcluded ? "default" : "outline"}
+                        size="sm"
+                        className={cn(
+                          "capitalize",
+                          !isExcluded && colorClass
+                        )}
+                        onClick={() => toggleExcludedCategory(cat)}
+                      >
+                        {emoji && <span className="mr-1">{emoji}</span>}
+                        {cat}
+                      </Button>
+                    );
+                  })}
+                  {excludedCategories.size > 0 && (
                     <Button
-                      key={cat}
-                      variant={isExcluded ? "outline" : "default"}
+                      variant="ghost"
                       size="sm"
-                      className="capitalize"
-                      onClick={() => toggleExcludedCategory(cat)}
+                      onClick={() => setExcludedCategories(new Set())}
                     >
-                      {cat}
+                      Clear
                     </Button>
-                  );
-                })}
-                {excludedCategories.size > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setExcludedCategories(new Set())}
-                  >
-                    Clear
-                  </Button>
-                )}
+                  )}
+                </div>
               </div>
             )}
             {/* Stats Cards */}
@@ -337,11 +397,7 @@ export default function Home() {
                       <CardTitle className="text-sm font-medium text-muted-foreground">
                         Total Spent
                       </CardTitle>
-                      {monthChange >= 0 ? (
-                        <TrendingUp className="h-4 w-4 text-destructive" />
-                      ) : (
-                        <TrendingDown className="h-4 w-4 text-emerald-500" />
-                      )}
+                      <span className="text-lg">💸</span>
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
@@ -359,7 +415,7 @@ export default function Home() {
                       <CardTitle className="text-sm font-medium text-muted-foreground">
                         Total Credited
                       </CardTitle>
-                      <ArrowRightLeft className="h-4 w-4 text-emerald-500" />
+                      <span className="text-lg">💰</span>
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-emerald-500">
@@ -376,7 +432,7 @@ export default function Home() {
                       <CardTitle className="text-sm font-medium text-muted-foreground">
                         Top Categories
                       </CardTitle>
-                      <Crown className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-lg">👑</span>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
@@ -384,6 +440,7 @@ export default function Home() {
                           <div key={cat.category} className="flex items-center justify-between">
                             <span className="text-sm capitalize">
                               <span className="text-muted-foreground mr-1.5">{i + 1}.</span>
+                              {CATEGORY_EMOJI[cat.category || "N/A"] && <span className="mr-1">{CATEGORY_EMOJI[cat.category || "N/A"]}</span>}
                               {cat.category || "N/A"}
                             </span>
                             <span className="text-sm font-medium">{formatCurrency(cat.amount)}</span>
@@ -398,7 +455,7 @@ export default function Home() {
                       <CardTitle className="text-sm font-medium text-muted-foreground">
                         Avg Daily Spend
                       </CardTitle>
-                      <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-lg">📅</span>
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
@@ -431,11 +488,11 @@ export default function Home() {
                           },
                         } satisfies ChartConfig
                       }
-                      className="h-[350px] w-full"
+                      className="h-[350px] w-full [&_.recharts-wrapper]:overflow-visible [&_.recharts-surface]:overflow-visible"
                     >
                       <LineChart
                         data={spending}
-                        margin={{ top: 24, left: 12, right: 12 }}
+                        margin={{ top: 24, left: 12, right: 40 }}
                       >
                         <CartesianGrid vertical={false} />
                         <XAxis
@@ -453,6 +510,7 @@ export default function Home() {
                           axisLine={false}
                           tickMargin={8}
                           tickFormatter={(v) => `$${v}`}
+                          domain={[0, "auto"]}
                         />
                         <ChartTooltip
                           cursor={false}
@@ -472,7 +530,7 @@ export default function Home() {
                         />
                         <Line
                           dataKey="amount"
-                          type="natural"
+                          type="monotone"
                           stroke="var(--color-amount)"
                           strokeWidth={2}
                           dot={{ fill: "var(--color-amount)", r: 4 }}
@@ -492,7 +550,7 @@ export default function Home() {
                       <div className="mt-4 flex items-center gap-2 text-sm">
                         {monthChange >= 0 ? (
                           <>
-                            <TrendingUp className="h-4 w-4 text-destructive" />
+                            <span>📈</span>
                             <span>
                               Trending up {monthChange.toFixed(1)}% vs previous
                               period
@@ -500,7 +558,7 @@ export default function Home() {
                           </>
                         ) : (
                           <>
-                            <TrendingDown className="h-4 w-4 text-emerald-500" />
+                            <span>📉</span>
                             <span>
                               Trending down{" "}
                               {Math.abs(monthChange).toFixed(1)}% vs previous
@@ -522,82 +580,102 @@ export default function Home() {
 
           {/* Transactions Tab */}
           <TabsContent value="transactions">
-            {accounts.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {accounts.map((acct) => {
-                  const key = `${acct.bank}_${acct.is_deposit_account}`;
-                  const isActive = selectedAccounts.has(key);
-                  return (
-                    <Button
-                      key={key}
-                      variant={isActive ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleAccount(key)}
-                    >
-                      {acct.label}
-                    </Button>
-                  );
-                })}
-                {selectedAccounts.size > 0 && (
+            <div className="rounded-lg border p-4 space-y-4 mb-4">
+              {/* Account Filters */}
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Account</span>
+                <div className="flex flex-wrap gap-2">
                   <Button
-                    variant="ghost"
+                    variant={selectedAccounts.size === 0 ? "default" : "outline"}
                     size="sm"
                     onClick={() => setSelectedAccounts(new Set())}
                   >
-                    Clear
+                    <Star className="h-3.5 w-3.5 mr-1.5" />
+                    All Accounts
                   </Button>
-                )}
+                  {accounts.map((acct) => {
+                    const key = `${acct.bank}_${acct.is_deposit_account}`;
+                    const isActive = selectedAccounts.has(key);
+                    return (
+                      <Button
+                        key={key}
+                        variant={isActive ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleAccount(key)}
+                      >
+                        {acct.is_deposit_account ? (
+                          <Landmark className="h-3.5 w-3.5 mr-1.5" />
+                        ) : (
+                          <CreditCard className="h-3.5 w-3.5 mr-1.5" />
+                        )}
+                        {acct.label}
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
-            )}
-            {categories.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {categories.map((cat) => {
-                  const isActive = selectedCategories.has(cat);
-                  return (
+
+              {/* Category Filters */}
+              {categories.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Category</span>
+                  <div className="flex flex-wrap gap-2">
                     <Button
-                      key={cat}
-                      variant={isActive ? "default" : "outline"}
+                      variant={selectedCategories.size === 0 ? "default" : "outline"}
                       size="sm"
-                      className="capitalize"
-                      onClick={() => toggleCategory(cat)}
+                      onClick={() => setSelectedCategories(new Set())}
                     >
-                      {cat}
+                      <LayoutGrid className="h-3.5 w-3.5 mr-1.5" />
+                      All
                     </Button>
-                  );
-                })}
-                {selectedCategories.size > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedCategories(new Set())}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-            )}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">
+                    {categories.map((cat) => {
+                      const isActive = selectedCategories.has(cat);
+                      const emoji = CATEGORY_EMOJI[cat] ?? "";
+                      const colorClass = CATEGORY_COLORS[cat] ?? "";
+                      return (
+                        <Button
+                          key={cat}
+                          variant={isActive ? "default" : "outline"}
+                          size="sm"
+                          className={cn(
+                            "capitalize",
+                            !isActive && colorClass
+                          )}
+                          onClick={() => toggleCategory(cat)}
+                        >
+                          {emoji && <span className="mr-1">{emoji}</span>}
+                          {cat}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Transaction summary row */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-6">
+                <span className="text-sm font-medium">
                   Transactions ({filteredTransactions.length})
-                </CardTitle>
+                </span>
                 {filteredTransactions.length > 0 && (
-                  <div className="flex gap-6 pt-2 text-sm">
-                    <span className="text-red-500 font-medium">
+                  <>
+                    <span className="text-sm text-red-500 font-medium">
                       Debited: -{formatCurrency(
                         filteredTransactions
                           .filter((t) => t.txn_type === "DEBIT" && !t.ignored)
                           .reduce((sum, t) => sum + t.amount, 0)
                       )}
                     </span>
-                    <span className="text-emerald-500 font-medium">
+                    <span className="text-sm text-emerald-500 font-medium">
                       Credited: +{formatCurrency(
                         filteredTransactions
                           .filter((t) => t.txn_type === "CREDIT" && !t.ignored)
                           .reduce((sum, t) => sum + t.amount, 0)
                       )}
                     </span>
-                    <span className="text-muted-foreground font-medium">
+                    <span className="text-sm text-muted-foreground font-medium">
                       Net: {(() => {
                         const debited = filteredTransactions
                           .filter((t) => t.txn_type === "DEBIT" && !t.ignored)
@@ -609,10 +687,21 @@ export default function Home() {
                         return `${net >= 0 ? "+" : "-"}${formatCurrency(Math.abs(net))}`;
                       })()}
                     </span>
-                  </div>
+                  </>
                 )}
-              </CardHeader>
-              <CardContent className="overflow-visible [&_[data-slot=table-container]]:overflow-visible">
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setHideIgnored((v) => !v)}
+              >
+                {hideIgnored ? <EyeOff className="h-3.5 w-3.5 mr-1.5" /> : <Eye className="h-3.5 w-3.5 mr-1.5" />}
+                {hideIgnored ? "Show Ignored" : "Hide Ignored"}
+              </Button>
+            </div>
+
+            <Card>
+              <CardContent className="pt-4 overflow-visible [&_[data-slot=table-container]]:overflow-visible">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -636,7 +725,7 @@ export default function Home() {
                         <TableCell className="text-muted-foreground whitespace-nowrap">
                           {txn.txn_date}
                         </TableCell>
-                        <TableCell className="font-medium break-words">
+                        <TableCell className="font-medium max-w-[300px] truncate" title={txn.merchant}>
                           {txn.merchant}
                         </TableCell>
                         <TableCell
@@ -666,9 +755,15 @@ export default function Home() {
                               className="cursor-pointer"
                             >
                               <Badge
-                                variant="secondary"
-                                className="capitalize"
+                                variant="outline"
+                                className={cn(
+                                  "capitalize",
+                                  CATEGORY_COLORS[txn.category] ?? ""
+                                )}
                               >
+                                {CATEGORY_EMOJI[txn.category] && (
+                                  <span className="mr-1">{CATEGORY_EMOJI[txn.category]}</span>
+                                )}
                                 {txn.category}
                               </Badge>
                             </button>
@@ -719,6 +814,7 @@ export default function Home() {
                                             setCategorySearch("");
                                           }}
                                         >
+                                          {CATEGORY_EMOJI[cat] && <span className="mr-1">{CATEGORY_EMOJI[cat]}</span>}
                                           {cat}
                                         </button>
                                       ))}
@@ -735,6 +831,7 @@ export default function Home() {
                             className="h-7 px-2 text-xs"
                             onClick={() => toggleIgnored(txn.id, txn.ignored)}
                           >
+                            {txn.ignored ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
                             {txn.ignored ? "Restore" : "Ignore"}
                           </Button>
                         </TableCell>
