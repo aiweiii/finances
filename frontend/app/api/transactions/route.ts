@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     result.rows.map((r) => ({
       ...r,
+      category: r.category || "N/A",
       amount: parseFloat(r.amount),
       txn_date: r.txn_date.toISOString().split("T")[0],
     }))

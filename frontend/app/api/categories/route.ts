@@ -6,5 +6,7 @@ export async function GET() {
     `SELECT name FROM categories ORDER BY name`
   );
 
-  return NextResponse.json(result.rows.map((r) => r.name));
+  const names = result.rows.map((r: { name: string }) => r.name);
+  names.push("N/A");
+  return NextResponse.json(names);
 }

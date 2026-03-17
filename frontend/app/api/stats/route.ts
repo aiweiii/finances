@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     ),
     pool.query(
       `SELECT category, SUM(amount) as total
-       FROM expenses WHERE txn_type = 'DEBIT' AND ignored = FALSE AND category != '' AND category != 'N/A' AND ${dateFilter}${excludeClause}
+       FROM expenses WHERE txn_type = 'DEBIT' AND ignored = FALSE AND ${dateFilter}${excludeClause}
        GROUP BY category ORDER BY total DESC LIMIT 3`,
       allParams
     ),
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
   const prevTotal = parseFloat(prevResult.rows[0].total);
   const topCat = topCatResult.rows[0];
   const topCategories = topCatResult.rows.map((r: { category: string; total: string }) => ({
-    category: r.category,
+    category: r.category || "N/A",
     amount: parseFloat(r.total),
   }));
   const days = parseInt(daysResult.rows[0].days) || 1;
