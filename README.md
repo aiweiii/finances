@@ -21,7 +21,7 @@ No APIs. No manual data entry. Just automation for the financially-savvy 🤔 ye
 
 ![Overview](assets/overview.png)
 ![Transactions](assets/transactions.png)
-*Image taken via a screenshot tool - which explains the cutoff on the sidebar and two Next.js logo*
+*Mock data used. Image taken via a screenshot tool - which explains the cutoff on the sidebar and two Next.js logo*
 
 ## Why
 
