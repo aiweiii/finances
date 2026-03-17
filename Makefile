@@ -1,4 +1,4 @@
-.PHONY: preprocess test pt run_stg frontend
+.PHONY: preprocess test pt stg_backend stg_frontend
 
 preprocess:
 	python3 preprocessor/process_document.py
@@ -8,10 +8,10 @@ test:
 
 pt: preprocess test
 
-run_stg:
+stg_backend:
 	go run . stg
 
-frontend:
-	cd frontend && npm run dev
+stg_frontend:
+	cd frontend && npm run dev:stg
 
-all: pt run_stg frontend
+all: pt stg_backend stg_frontend

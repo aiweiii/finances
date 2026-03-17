@@ -2,8 +2,9 @@ import type { NextConfig } from "next";
 import path from "path";
 import { config } from "dotenv";
 
-// Load DB_DSN from the root .env.stg file
-config({ path: path.resolve(__dirname, "../.env.stg") });
+// Load  config
+const envName = process.env.APP_ENV || "stg"
+config({ path: path.resolve(__dirname, `../.env.${envName}`) });
 
 const nextConfig: NextConfig = {
   turbopack: {
