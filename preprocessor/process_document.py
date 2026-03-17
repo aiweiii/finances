@@ -68,7 +68,7 @@ def extract_uob_deposit_transactions(df) -> list[tuple]:
     return results
 
 
-def extract_chocolate_transactions(df) -> list[tuple]:
+def extract_chocolate_transactions(df) -> tuple[list[tuple], bool]:
     """Column-based extraction for Chocolate Finance statements.
 
     Camelot columns: Date(0) | Transaction(1) | In(2) | Out(3) | Balance(4)
@@ -76,6 +76,7 @@ def extract_chocolate_transactions(df) -> list[tuple]:
     One of in_amt/out_amt will be empty string. S$ prefix is stripped.
     """
     results = []
+    pending_desc = ""
 
     for _, row in df.iterrows():
         if len(row) > 5:
@@ -83,23 +84,55 @@ def extract_chocolate_transactions(df) -> list[tuple]:
 
         date_cell = str(row.iloc[0]).strip() if len(row) > 0 else ""
         desc_cell = str(row.iloc[1]).strip() if len(row) > 1 else ""
-        in_raw = str(row.iloc[2]).strip() if len(row) > 2 else ""
-        out_raw = str(row.iloc[3]).strip() if len(row) > 3 else ""
 
+        is_new_txn_desc = desc_cell.startswith("Card transaction:")
         desc_match = re.match(r"(?:Card transaction:)?\s(.+)", desc_cell)
         desc_cell = desc_match.group(1).strip() if desc_match else desc_cell
 
-        # Strip S$ prefix
+        in_raw = str(row.iloc[2]).strip() if len(row) > 2 else ""
+        out_raw = str(row.iloc[3]).strip() if len(row) > 3 else ""
+
         in_match = _SGD_AMT_RE.search(in_raw)
         out_match = _SGD_AMT_RE.search(out_raw)
         in_amt = in_match.group(1) if in_match else ""
         out_amt = out_match.group(1) if out_match else ""
 
-        if _DATE_RE.fullmatch(date_cell) and \
-                not _DATE_RE.fullmatch(desc_cell) and \
-                (in_amt or out_amt):
-            results.append((date_cell, desc_cell, in_amt, out_amt))
-    return results
+        # For 4-column tables, column 3 could be Balance instead of Out.
+        # Detect this: if both In and Out have amounts, the Out is likely Balance — drop it.
+        if len(row) == 4 and in_amt and out_amt:
+            out_amt = ""
+
+        if _DATE_RE.fullmatch(date_cell) and (in_amt or out_amt):
+            if not desc_cell:
+                desc_cell = pending_desc
+            elif pending_desc and results:
+                prev = list(results[-1])
+                prev[1] += " " + pending_desc
+                results[-1] = tuple(prev)
+            pending_desc = ""
+            if desc_cell:
+                results.append((date_cell, desc_cell, in_amt, out_amt))
+        elif desc_cell:
+            if is_new_txn_desc:
+                # Flush any existing pending as continuation of previous transaction
+                if pending_desc and results:
+                    prev = list(results[-1])
+                    prev[1] += " " + pending_desc
+                    results[-1] = tuple(prev)
+                pending_desc = desc_cell
+            else:
+                # Continuation of pending or previous transaction
+                if pending_desc:
+                    pending_desc = pending_desc + " " + desc_cell
+                elif results:
+                    prev = list(results[-1])
+                    prev[1] += " " + desc_cell
+                    results[-1] = tuple(prev)
+
+        if desc_cell.upper() == "MONTHLY RETURNS":
+            return results, True
+
+    return results, False
 
 
 def extract_transactions(df, bank_key: str) -> list[tuple]:
@@ -140,6 +173,9 @@ def main():
         if not str(file).endswith(".pdf"):
             continue
 
+        # Flags
+        should_stop_iterating = False
+
         bank = Path(file).stem.split("_")[0].upper()
         is_deposit = "deposit" in str(file)
 
@@ -150,8 +186,11 @@ def main():
         filename_without_extension = Path(file).stem
 
         all_transactions = []
+        chocolate_page_results = {}
 
         for table_ix, table in enumerate(tables):
+            if should_stop_iterating: break
+
             df = table.df
             df.columns = range(len(df.columns))
 
@@ -163,8 +202,15 @@ def main():
             elif bank == "CITI":
                 all_transactions.extend(extract_transactions(df, "CITI"))
             elif bank == "CHOCOLATE":
-                all_transactions.extend(extract_chocolate_transactions(df))
+                extracted, should_stop_iterating = extract_chocolate_transactions(df)
+                # Keep the best extraction per page (Camelot sometimes detects overlapping regions)
+                prev = chocolate_page_results.get(table.page)
+                if prev is None or len(extracted) > len(prev):
+                    chocolate_page_results[table.page] = extracted
 
+        if bank == "CHOCOLATE":
+            for page in sorted(chocolate_page_results):
+                all_transactions.extend(chocolate_page_results[page])
         write_to_csv(all_transactions, filename=filename_without_extension)
 
         elapsed = time.time() - start_time
