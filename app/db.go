@@ -12,18 +12,14 @@ import (
 
 func MustSetup(ctx context.Context, conn *pgx.Conn) error {
 
-	// Drop table if exist
-	dropTable, _ := strconv.ParseBool(os.Getenv("DROP_TABLE"))
-	if dropTable {
-		_, err := conn.Exec(ctx, "DROP TABLE IF EXISTS expenses")
-		if err != nil {
-			return fmt.Errorf("error dropping table: %w", err)
+	shouldDropTables, _ := strconv.ParseBool(os.Getenv("DROP_TABLE"))
+	if shouldDropTables {
+		if err := dropTables(ctx, conn, []string{"categories"}) ; err != nil {
+			return err
 		}
-
-		fmt.Println("dropped table")
 	}
 
-	// Create table
+	// Create expenses table
 	_, err := conn.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS expenses (
 	    id VARCHAR(255) PRIMARY KEY,
@@ -35,12 +31,39 @@ func MustSetup(ctx context.Context, conn *pgx.Conn) error {
 	    bank VARCHAR(255),
 	    is_deposit_account BOOLEAN DEFAULT FALSE,
 	    raw_location VARCHAR(255) UNIQUE,
+	    ignored BOOLEAN DEFAULT FALSE,
 	    modified_date TIMESTAMPTZ DEFAULT now()
 	)`)
 	if err != nil {
 		return fmt.Errorf("error creating table: %w", err)
 	}
 
+	// Create categories table
+	_, err = conn.Exec(ctx, `
+	CREATE TABLE IF NOT EXISTS categories (
+	    name VARCHAR(255) PRIMARY KEY
+	)`)
+	if err != nil {
+		return fmt.Errorf("error creating categories table: %w", err)
+	}
+
+	return nil
+}
+
+func PopulateCategories(ctx context.Context, conn *pgx.Conn, categoryNames []string) error {
+	for _, name := range categoryNames {
+		// CommandTag is the returned metadata about the SQL command
+		cmdTag, err := conn.Exec(ctx, `INSERT INTO categories (name) VALUES ($1) ON CONFLICT DO NOTHING`, name)
+		if err != nil {
+			return fmt.Errorf("error inserting category %s: %w", name, err)
+		}
+
+		if cmdTag.RowsAffected() == 0 {
+			fmt.Printf("ignoring existing category: %s\n", name)
+		} else {
+			fmt.Printf("inserted new category: %s\n", name)
+		}
+	}
 	return nil
 }
 
@@ -51,15 +74,34 @@ func InsertIntoDb(ctx context.Context, conn *pgx.Conn, txns []TxnData) error {
 	}
 	defer tx.Rollback(ctx) // Auto-rollback if not committed
 
-	sqlStmt := `INSERT INTO expenses (id, txn_date, txn_type, category, merchant, amount, bank, is_deposit_account, raw_location) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sqlStmt := `INSERT INTO expenses (id, txn_date, txn_type, category, merchant, amount, bank, is_deposit_account, raw_location) 
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+				ON CONFLICT DO NOTHING`
 
 	for _, txn := range txns {
 		amountInFloat := fmt.Sprintf("%.2f", float64(txn.Value)/100)
-		_, err = tx.Exec(ctx, sqlStmt, txn.Id, txn.Date, txn.TxnType, txn.Category, txn.Merchant, amountInFloat, txn.Bank, txn.IsDepositAccount, txn.RawLocation)
-		if err != nil {
+		_, txErr := tx.Exec(ctx, sqlStmt, txn.Id, txn.Date, txn.TxnType, txn.Category, txn.Merchant, amountInFloat, txn.Bank, txn.IsDepositAccount, txn.RawLocation)
+		if txErr != nil {
 			return fmt.Errorf("error executing statement: %w", err)
 		}
+
+		// if cmdTag.RowsAffected() > 0 {
+		// 	fmt.Printf("inserted new transaction: %s, %s, %s", txn.RawLocation, txn.Date, txn.Merchant)
+		// }
 	}
 
 	return tx.Commit(ctx)
+}
+
+func dropTables(ctx context.Context, conn *pgx.Conn, tables []string) error {
+	for _, table := range tables {
+		_, err := conn.Exec(ctx,  fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+		if err != nil {
+			return fmt.Errorf("error dropping table: %w", err)
+		}
+
+		fmt.Printf("dropped table: %s\n", table)
+	}
+
+	return nil
 }

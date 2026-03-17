@@ -99,7 +99,7 @@ func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 		txn.Bank = bank
 		txn.IsDepositAccount = isDepositAccTxn
 		txn.RawLocation = fileName + "_" + strconv.Itoa(rowNo)
-		txn.Id = generateTxnId(txn.RawLocation)
+		txn.Id = getTxnId(txn.RawLocation)
 
 		transactions = append(transactions, txn)
 	}

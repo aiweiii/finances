@@ -45,9 +45,14 @@ func main() {
 	}
 
 	// build trie on a list of known merchants to help obtain category from merchant name later
-	trie, err := app.BuildTrieOnKnownMerchants()
+	trie, categoryNames, err := app.BuildTrieOnKnownMerchants()
 	if err != nil {
 		log.Fatalf("error building trie: %v", err)
+	}
+
+	err = app.PopulateCategories(ctx, conn, categoryNames)
+	if err != nil {
+		log.Fatalf("error populating categories: %v", err)
 	}
 
 	for _, entry := range entries {
@@ -55,11 +60,7 @@ func main() {
 			continue
 		}
 
-		// if entry.Name() != "uob_sept_2025.csv" {
-		// 	continue
-		// }
-
-		fmt.Println("reading file: ", entry)
+		fmt.Println("reading file: ", entry.Name())
 
 		txns, err := app.GetTransactions(inputFilePath+entry.Name(), trie)
 		if err != nil {

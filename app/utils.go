@@ -55,7 +55,7 @@ func convertToCents(input string) (int64, error) {
 	return cents.IntPart(), nil
 }
 
-func generateTxnId(fileNameAndRow string) string {
+func getTxnId(fileNameAndRow string) string {
 	sum := sha256.Sum256([]byte(fileNameAndRow))
 	return hex.EncodeToString(sum[:4]) // Get first 4 bytes of 32-byte hash
 }
