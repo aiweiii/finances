@@ -11,6 +11,8 @@ import camelot
 _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+env = os.environ.get("ENV", "local")
+_log.info(f"processing pdf files for env: {env}")
 
 def get_file_path(*args):
     return os.path.join(os.path.dirname(__file__), *args)
@@ -150,7 +152,7 @@ def extract_transactions(df, bank_key: str) -> list[tuple]:
 
 
 def write_to_csv(lst: list[tuple], filename):
-    path = get_file_path("scratch", f"{filename}.csv")
+    path = get_file_path(f"scratch/{env}", f"{filename}.csv")
     cleaned = []
     for row in lst:
         cleaned_row = list(row)
@@ -164,8 +166,8 @@ def write_to_csv(lst: list[tuple], filename):
 
 
 def main():
-    # Delete and recreate `/scratch` directory
-    output_dir = get_file_path("scratch")
+    # Delete and recreate `/scratch/{env}` directory
+    output_dir = get_file_path(f"scratch/{env}")
     shutil.rmtree(output_dir, ignore_errors=True)
     os.makedirs(output_dir, exist_ok=True)
 

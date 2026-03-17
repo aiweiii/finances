@@ -6,6 +6,7 @@ import pytest
 
 from process_document import extract_chocolate_transactions
 
+# Only for Author's usage 😅
 
 def get_file_path(*args):
     return os.path.join(os.path.dirname(__file__), *args)

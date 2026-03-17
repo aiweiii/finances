@@ -16,12 +16,16 @@ var (
 )
 
 func main() {
-	env := "stg"
+	var env string
 	args := os.Args
 	if len(args) > 1 {
 		env = args[1]
+	} else {
+		log.Fatalf("please provide an environment: local/dev/stg/prd")
 	}
 	fmt.Println("deploying for env:", env)
+
+	inputFilePath = inputFilePath + env + "/"
 
 	err := godotenv.Load(".env." + env)
 	if err != nil {
