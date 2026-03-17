@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:local": "APP_ENV=local next dev",
-    "dev:stg": "APP_ENV=stg next dev",
+    "dev:local": "APP_ENV=local next dev -p 3000",
+    "dev:dev": "APP_ENV=dev next dev -p 3001",
+    "dev:stg": "APP_ENV=stg next dev -p 3002",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

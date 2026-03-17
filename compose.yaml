@@ -4,20 +4,14 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: finance
+      POSTGRES_DB: main
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
     volumes:
       # PostgreSQL stores data in /var/lib/postgresql/data inside the container.
-      # This persists data to the volume `finance_data`
-      - finance_data:/var/lib/postgresql/data
-
-  grafana:
-    image: grafana/grafana
-    ports:
-      - "3000:3000"
-    depends_on:
-      - postgres
+      # This persists data to the volume `main_data`
+      - main_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
 volumes:
-  finance_data:
+  main_data:
