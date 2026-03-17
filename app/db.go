@@ -5,22 +5,26 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	_ "github.com/lib/pq"
 )
 
 func MustSetup(ctx context.Context, conn *pgx.Conn) error {
-
-	shouldDropTables, _ := strconv.ParseBool(os.Getenv("DROP_TABLE"))
-	if shouldDropTables {
-		if err := dropTables(ctx, conn, []string{"categories"}) ; err != nil {
-			return err
-		}
+	if err := dropTables(ctx, conn); err != nil {
+		return fmt.Errorf("error dropping table: %w", err)
 	}
 
-	// Create expenses table
-	_, err := conn.Exec(ctx, `
+	// Create `main` database
+	dbName := os.Getenv("DB_NAME")
+	_, err := conn.Exec(ctx, fmt.Sprintf(`SELECT 'CREATE DATABASE %s' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '%s')`, dbName, dbName))
+	if err != nil {
+		return fmt.Errorf("error creating `%s` database, %w", dbName, err)
+	}
+
+	// Create `expenses` table
+	_, err = conn.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS expenses (
 	    id VARCHAR(255) PRIMARY KEY,
 	    txn_date DATE,
@@ -38,7 +42,7 @@ func MustSetup(ctx context.Context, conn *pgx.Conn) error {
 		return fmt.Errorf("error creating table: %w", err)
 	}
 
-	// Create categories table
+	// Create `categories` table
 	_, err = conn.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS categories (
 	    name VARCHAR(255) PRIMARY KEY
@@ -93,11 +97,25 @@ func InsertIntoDb(ctx context.Context, conn *pgx.Conn, txns []TxnData) error {
 	return tx.Commit(ctx)
 }
 
-func dropTables(ctx context.Context, conn *pgx.Conn, tables []string) error {
-	for _, table := range tables {
-		_, err := conn.Exec(ctx,  fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+func dropTables(ctx context.Context, conn *pgx.Conn) error {
+	shouldDropTables, _ := strconv.ParseBool(os.Getenv("SHOULD_DROP_TABLE"))
+	if !shouldDropTables {
+		return nil
+	}
+
+	var tablesToDrop []string
+	tablesEnv := os.Getenv("DROP_TABLES")
+
+	if tablesEnv == "" {
+		fmt.Printf("drop tables: no tables specified")
+	}
+
+	tablesToDrop = strings.Split(tablesEnv, ",")
+
+	for _, table := range tablesToDrop {
+		_, err := conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
 		if err != nil {
-			return fmt.Errorf("error dropping table: %w", err)
+			return err
 		}
 
 		fmt.Printf("dropped table: %s\n", table)
