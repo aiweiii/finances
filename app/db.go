@@ -16,15 +16,8 @@ func MustSetup(ctx context.Context, conn *pgx.Conn) error {
 		return fmt.Errorf("error dropping table: %w", err)
 	}
 
-	// Create `main` database
-	dbName := os.Getenv("DB_NAME")
-	_, err := conn.Exec(ctx, fmt.Sprintf(`SELECT 'CREATE DATABASE %s' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '%s')`, dbName, dbName))
-	if err != nil {
-		return fmt.Errorf("error creating `%s` database, %w", dbName, err)
-	}
-
 	// Create `expenses` table
-	_, err = conn.Exec(ctx, `
+	_, err := conn.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS expenses (
 	    id VARCHAR(255) PRIMARY KEY,
 	    txn_date DATE,
@@ -78,9 +71,11 @@ func InsertIntoDb(ctx context.Context, conn *pgx.Conn, txns []TxnData) error {
 	}
 	defer tx.Rollback(ctx) // Auto-rollback if not committed
 
-	sqlStmt := `INSERT INTO expenses (id, txn_date, txn_type, category, merchant, amount, bank, is_deposit_account, raw_location) 
+	sqlStmt := `INSERT INTO expenses (id, txn_date, txn_type, category, merchant, amount, bank, is_deposit_account, raw_location)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-				ON CONFLICT DO NOTHING`
+				ON CONFLICT (raw_location) DO UPDATE
+				SET category = EXCLUDED.category,
+				    modified_date = now()`
 
 	for _, txn := range txns {
 		amountInFloat := fmt.Sprintf("%.2f", float64(txn.Value)/100)
