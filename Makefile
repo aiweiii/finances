@@ -4,6 +4,9 @@
 local_preprocess:
 	ENV=local python3 preprocessor/process_document.py
 
+local_preprocess_hsbc:
+	ENV=local python3 preprocessor/process_hsbc.py
+
 local_backend:
 	go run . local
 
@@ -24,6 +27,9 @@ dev: dev_backend dev_frontend
 ########### STG ###########
 stg_preprocess:
 	ENV=stg python3 preprocessor/process_document.py
+
+stg_preprocess_hsbc:
+	ENV=stg python3 preprocessor/process_hsbc.py
 
 stg_test:
 	pytest preprocessor/test.py -v

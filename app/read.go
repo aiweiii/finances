@@ -77,6 +77,11 @@ func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 			if err != nil {
 				return nil, fmt.Errorf("[%s] error getting transactions for Chocolate acc: %w", funcName, err)
 			}
+		} else if bank == "HSBC" {
+			txn, err = getTransactionsForHsbcCreditCard(row, year)
+			if err != nil {
+				return nil, fmt.Errorf("[%s] error getting transactions for HSBC credit card: %w", funcName, err)
+			}
 		}
 
 		if txn.Merchant == "" {
@@ -258,5 +263,38 @@ func getTransactionsForCitiCreditCard(row []string, year string) (TxnData, error
 		Value:    amtInCents,
 		Category: "",
 		Merchant: row[1],
+	}, nil
+}
+
+func getTransactionsForHsbcCreditCard(row []string, year string) (TxnData, error) {
+	funcName := "getTransactionsForHsbcCreditCard"
+
+	trimmedDate := strings.ReplaceAll(row[0], " ", "")
+	date, err := stringToDate(trimmedDate, year)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting stringified date in raw stmt to expected date format: %w", funcName, err)
+	}
+
+	merchant := row[1]
+
+	amt := row[2]
+	txnType := "DEBIT"
+	if strings.HasSuffix(amt, "CR") {
+		amt = strings.TrimSuffix(amt, "CR")
+		amt = strings.TrimSpace(amt)
+		txnType = "CREDIT"
+	}
+	amtInCents, err := convertToCents(amt)
+	if err != nil {
+		return TxnData{}, fmt.Errorf("[%s] error converting amount to cents: %w", funcName, err)
+	}
+
+	return TxnData{
+		Date:     date,
+		Bank:     "",
+		TxnType:  txnType,
+		Value:    amtInCents,
+		Category: "",
+		Merchant: merchant,
 	}, nil
 }
