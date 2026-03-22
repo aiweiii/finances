@@ -69,13 +69,16 @@ func InsertIntoDb(ctx context.Context, conn *pgx.Conn, txns []TxnData) error {
 	if err != nil {
 		return fmt.Errorf("error beginning transaction: %w", err)
 	}
-	defer tx.Rollback(ctx) // Auto-rollback if not committed
+	defer tx.Rollback(ctx)
 
+	// If transaction doesn't exist, insert it.
+	// If transaction exists, update only the category
 	sqlStmt := `INSERT INTO expenses (id, txn_date, txn_type, category, merchant, amount, bank, is_deposit_account, raw_location)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 				ON CONFLICT (raw_location) DO UPDATE
 				SET category = EXCLUDED.category,
-				    modified_date = now()`
+				    modified_date = now()
+				WHERE EXCLUDED.category <> '' AND EXCLUDED.category <> expenses.category`
 
 	for _, txn := range txns {
 		amountInFloat := fmt.Sprintf("%.2f", float64(txn.Value)/100)
