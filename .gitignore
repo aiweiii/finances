@@ -12,3 +12,5 @@ todo.txt
 
 !.env.local
 !.env.dev
+!preprocessor/scratch/dev/
+!preprocessor/scratch/dev/*.csv
