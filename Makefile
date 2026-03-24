@@ -7,6 +7,9 @@ local_preprocess:
 local_preprocess_hsbc:
 	ENV=local python3 preprocessor/process_hsbc.py
 
+local_preprocess_hsbc_ollama:
+	ENV=local OCR_MODEL=qwen2.5vl:3b python3 preprocessor/process_hsbc.py
+
 local_backend:
 	go run . local
 
@@ -30,6 +33,9 @@ stg_preprocess:
 
 stg_preprocess_hsbc:
 	ENV=stg python3 preprocessor/process_hsbc.py
+
+stg_preprocess_hsbc_ollama:
+	ENV=stg OCR_MODEL=qwen2.5vl:3b python3 preprocessor/process_hsbc.py
 
 stg_test:
 	pytest preprocessor/test.py -v

@@ -54,11 +54,8 @@ def image_to_base64(image) -> str:
     return base64.standard_b64encode(buf.getvalue()).decode("utf-8")
 
 
-def extract_transactions_from_pages(images) -> list[tuple]:
-    print(f"[API KEY] {os.getenv('ANTHROPIC_API_KEY')}")
-    client = anthropic.Anthropic(
-        api_key=os.getenv("ANTHROPIC_API_KEY")
-    )
+def _call_claude(images):
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     content = []
     for image in images:
@@ -77,8 +74,40 @@ def extract_transactions_from_pages(images) -> list[tuple]:
         max_tokens=4096,
         messages=[{"role": "user", "content": content}],
     )
+    return message.content[0].text.strip(), message.usage
 
-    response_text = message.content[0].text.strip()
+
+def _call_ollama(images, model: str):
+    import ollama
+
+    _log.info(f"ensuring model '{model}' is available...")
+    # ollama.pull(model)
+
+    image_bytes_list = []
+    for image in images:
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        image_bytes_list.append(buf.getvalue())
+
+    response = ollama.chat(
+        model=model,
+        messages=[{
+            "role": "user",
+            "content": EXTRACTION_PROMPT,
+            "images": image_bytes_list,
+        }],
+    )
+    return response["message"]["content"].strip(), None
+
+
+def extract_transactions_from_pages(images) -> list[tuple]:
+    ocr_model = os.getenv("OCR_MODEL", "claude")
+    _log.info(f"Using OCR model: {ocr_model}")
+
+    if ocr_model == "claude":
+        response_text, usage = _call_claude(images)
+    else:
+        response_text, usage = _call_ollama(images, model=ocr_model)
 
     # Strip accidental markdown fencing
     if response_text.startswith("```"):
@@ -99,7 +128,7 @@ def extract_transactions_from_pages(images) -> list[tuple]:
             continue
         results.append((date, merchant, amount))
 
-    return results, message.usage
+    return results, usage
 
 
 def write_to_csv(lst: list[tuple], filename: str):
@@ -143,12 +172,13 @@ def main():
             filename_without_extension = Path(file).stem
             write_to_csv(transactions, filename=filename_without_extension)
 
-            # Token usage and cost estimate (Sonnet: $3/1M input, $15/1M output)
-            input_cost = usage.input_tokens * 3 / 1_000_000
-            output_cost = usage.output_tokens * 15 / 1_000_000
-            total_cost = input_cost + output_cost
-            _log.info(f"  Tokens — input: {usage.input_tokens:,}, output: {usage.output_tokens:,}")
-            _log.info(f"  Est. cost: ${total_cost:.4f} (input: ${input_cost:.4f}, output: ${output_cost:.4f})")
+            if usage is not None:
+                # Token usage and cost estimate (Sonnet: $3/1M input, $15/1M output)
+                input_cost = usage.input_tokens * 3 / 1_000_000
+                output_cost = usage.output_tokens * 15 / 1_000_000
+                total_cost = input_cost + output_cost
+                _log.info(f"  Tokens — input: {usage.input_tokens:,}, output: {usage.output_tokens:,}")
+                _log.info(f"  Est. cost: ${total_cost:.4f} (input: ${input_cost:.4f}, output: ${output_cost:.4f})")
 
             elapsed = time.time() - start_time
             _log.info(f"Done processing {file} in {elapsed:.2f} seconds.")
