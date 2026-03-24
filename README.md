@@ -61,6 +61,13 @@ PDF bank statements
 - HSBC Bank Statements are image-based/scanned documents, need to use OCR afterall ... 😭
 - AI-powered categorisation
 
+## Prerequisites
+
+- **Docker** — for Postgres
+- **Go** — for backend
+- **Python 3** — for PDF preprocessor
+- **Node.js >= 20** — for the Next.js frontend
+    - Using [nvm](https://github.com/nvm-sh/nvm)? Run `nvm use` from the project root to auto-switch.
 ## Quick start
 
 ### Option 1: Try it instantly (mock data available)

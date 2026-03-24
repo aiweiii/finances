@@ -11,7 +11,7 @@ local_backend:
 	go run . local
 
 local_frontend:
-	cd frontend && npm run dev:local
+	cd frontend && npm ci && npm run dev:local
 
 local: local_preprocess local_backend local_frontend
 
@@ -20,7 +20,7 @@ dev_backend:
 	go run . dev
 
 dev_frontend:
-	cd frontend && npm run dev:dev
+	cd frontend && npm ci && npm run dev:dev
 
 dev: dev_backend dev_frontend
 
