@@ -70,12 +70,16 @@ def extract_uob_deposit_transactions(df) -> list[tuple]:
     return results
 
 
-def extract_chocolate_transactions(df) -> tuple[list[tuple], bool]:
+def extract_chocolate_transactions(df, prev_balance: float | None = None) -> tuple[list[tuple], bool, float | None]:
     """Column-based extraction for Chocolate Finance statements.
 
-    Camelot columns: Date(0) | Transaction(1) | In(2) | Out(3) | Balance(4)
-    Output tuples:   (date,    merchant,         in_amt,  out_amt)
-    One of in_amt/out_amt will be empty string. S$ prefix is stripped.
+    Camelot's column placement is unreliable across pages: column widths shift
+    and empty columns get collapsed, producing 3-, 4-, or 5-column rows. We
+    therefore determine In vs Out independently of which camelot column the
+    amount landed in, using:
+      1. balance direction (when a balance value is detected)
+      2. "Card transaction:" prefix → Out (fallback when no balance)
+    Output tuples: (date, merchant, in_amt, out_amt); one of in_amt/out_amt is "".
     """
     results = []
     pending_desc = ""
@@ -93,16 +97,48 @@ def extract_chocolate_transactions(df) -> tuple[list[tuple], bool]:
 
         in_raw = str(row.iloc[2]).strip() if len(row) > 2 else ""
         out_raw = str(row.iloc[3]).strip() if len(row) > 3 else ""
+        balance_raw = str(row.iloc[4]).strip() if len(row) > 4 else ""
 
         in_match = _SGD_AMT_RE.search(in_raw)
         out_match = _SGD_AMT_RE.search(out_raw)
+        balance_match = _SGD_AMT_RE.search(balance_raw)
+
         in_amt = in_match.group(1) if in_match else ""
         out_amt = out_match.group(1) if out_match else ""
 
-        # For 4-column tables, column 3 could be Balance instead of Out.
-        # Detect this: if both In and Out have amounts, the Out is likely Balance — drop it.
-        if len(row) == 4 and in_amt and out_amt:
-            out_amt = ""
+        # Camelot is unreliable about which column an amount lands in: column
+        # widths/positions shift across pages, and entirely-empty columns get
+        # collapsed (can produce 3, 4, or 5 column rows). Determine the In/Out
+        # direction independently of camelot's column placement, using:
+        #   1. balance direction (most reliable when balance is detected)
+        #   2. "Card transaction:" prefix → always Out (fallback)
+        actual_amt = in_amt or out_amt
+        direction: str | None = None
+
+        if balance_match:
+            cur_balance = float(balance_match.group(1).replace(",", ""))
+            if actual_amt and prev_balance is not None:
+                direction = "out" if cur_balance < prev_balance else "in"
+            prev_balance = cur_balance
+        elif len(row) == 4 and in_amt and out_amt:
+            # 4-column row: col 2 = amount, col 3 = balance (no col 4).
+            actual_amt = in_amt
+            cur_balance = float(out_amt.replace(",", ""))
+            in_amt, out_amt = "", ""
+            if prev_balance is not None:
+                direction = "out" if cur_balance < prev_balance else "in"
+            prev_balance = cur_balance
+
+        # Fall back to description heuristic when balance can't tell us
+        if actual_amt and direction is None:
+            direction = "out" if is_new_txn_desc else "in"
+
+        if direction == "out":
+            in_amt, out_amt = "", actual_amt
+        elif direction == "in":
+            in_amt, out_amt = actual_amt, ""
+
+        # print(f"{date_cell}, {desc_cell}, in:{in_amt}, out:{out_amt}")
 
         if _DATE_RE.fullmatch(date_cell) and (in_amt or out_amt):
             if not desc_cell:
@@ -132,9 +168,9 @@ def extract_chocolate_transactions(df) -> tuple[list[tuple], bool]:
                     results[-1] = tuple(prev)
 
         if desc_cell.upper() == "MONTHLY RETURNS":
-            return results, True
+            return results, True, prev_balance
 
-    return results, False
+    return results, False, prev_balance
 
 
 def extract_transactions(df, bank_key: str) -> list[tuple]:
@@ -188,31 +224,46 @@ def main():
         filename_without_extension = Path(file).stem
 
         all_transactions = []
-        chocolate_page_results = {}
-
-        for table_ix, table in enumerate(tables):
-            if should_stop_iterating: break
-
-            df = table.df
-            df.columns = range(len(df.columns))
-
-            # Apply bank-specific row filtering
-            if bank == "UOB" and is_deposit:
-                all_transactions.extend(extract_uob_deposit_transactions(df))
-            elif bank == "UOB":
-                all_transactions.extend(extract_transactions(df, "UOB"))
-            elif bank == "CITI":
-                all_transactions.extend(extract_transactions(df, "CITI"))
-            elif bank == "CHOCOLATE":
-                extracted, should_stop_iterating = extract_chocolate_transactions(df)
-                # Keep the best extraction per page (Camelot sometimes detects overlapping regions)
-                prev = chocolate_page_results.get(table.page)
-                if prev is None or len(extracted) > len(prev):
-                    chocolate_page_results[table.page] = extracted
 
         if bank == "CHOCOLATE":
-            for page in sorted(chocolate_page_results):
-                all_transactions.extend(chocolate_page_results[page])
+            # Camelot can return multiple overlapping detections for the same page.
+            # Group by page so every detection of a given page sees the same starting
+            # balance, and only advance the running balance using the best detection.
+            tables_by_page: dict[int, list] = {}
+            for table in tables:
+                tables_by_page.setdefault(table.page, []).append(table)
+
+            choc_prev_balance: float | None = None
+            for page in sorted(tables_by_page):
+                if should_stop_iterating: break
+                page_start_balance = choc_prev_balance
+                best_extracted: list[tuple] = []
+                best_ending_balance = page_start_balance
+                for table in tables_by_page[page]:
+                    df = table.df
+                    df.columns = range(len(df.columns))
+                    extracted, page_should_stop, ending_balance = extract_chocolate_transactions(df, page_start_balance)
+                    if len(extracted) > len(best_extracted):
+                        best_extracted = extracted
+                        best_ending_balance = ending_balance
+                        if page_should_stop:
+                            should_stop_iterating = True
+                all_transactions.extend(best_extracted)
+                choc_prev_balance = best_ending_balance
+        else:
+            for table_ix, table in enumerate(tables):
+                if should_stop_iterating: break
+
+                df = table.df
+                df.columns = range(len(df.columns))
+
+                if bank == "UOB" and is_deposit:
+                    all_transactions.extend(extract_uob_deposit_transactions(df))
+                elif bank == "UOB":
+                    all_transactions.extend(extract_transactions(df, "UOB"))
+                elif bank == "CITI":
+                    all_transactions.extend(extract_transactions(df, "CITI"))
+
         write_to_csv(all_transactions, filename=filename_without_extension)
 
         elapsed = time.time() - start_time
