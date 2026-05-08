@@ -1,2 +1,8 @@
 camelot-py==1.0.9
+<<<<<<< Updated upstream
 pytest==9.0.2
+=======
+ollama==0.6.1
+pytest==9.0.2
+boto3==1.42.83
+>>>>>>> Stashed changes

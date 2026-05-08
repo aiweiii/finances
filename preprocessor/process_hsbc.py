@@ -8,6 +8,7 @@ import re
 import time
 from pathlib import Path
 
+import boto3
 import anthropic
 from pdf2image import convert_from_path
 from dotenv import load_dotenv
@@ -78,7 +79,72 @@ def extract_transactions_from_pages(images) -> list[tuple]:
         messages=[{"role": "user", "content": content}],
     )
 
+<<<<<<< Updated upstream
     response_text = message.content[0].text.strip()
+=======
+
+def _call_ollama(images, model: str):
+    import ollama
+
+    _log.info(f"ensuring model '{model}' is available...")
+    # ollama.pull(model)
+
+    image_bytes_list = []
+    for image in images:
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        image_bytes_list.append(buf.getvalue())
+
+    response = ollama.chat(
+        model=model,
+        messages=[{
+            "role": "user",
+            "content": EXTRACTION_PROMPT,
+            "images": image_bytes_list,
+        }],
+    )
+    return response["message"]["content"].strip(), None
+
+
+def _call_sagemaker(images):
+    endpoint_name = os.getenv("SAGEMAKER_QWEN_2_5_VL_ENDPOINT_NAME")
+    client = boto3.client("sagemaker-runtime")
+
+    content = []
+    for image in images:
+        content.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/png;base64,{image_to_base64(image)}"},
+        })
+    content.append({"type": "text", "text": EXTRACTION_PROMPT})
+
+    payload = {
+        "messages": [{"role": "user", "content": content}],
+        "max_tokens": 4096,
+    }
+
+    response = client.invoke_endpoint(
+        EndpointName=endpoint_name,
+        ContentType="application/json",
+        Body=json.dumps(payload),
+    )
+
+    result = json.loads(response["Body"].read())
+    response_text = result["choices"][0]["message"]["content"]
+    return response_text.strip(), None
+
+
+def extract_transactions_from_pages(images) -> list[tuple]:
+    ocr_model = os.getenv("OCR_MODEL", "claude")
+    _log.info(f"Using OCR model: {ocr_model}")
+
+    if ocr_model == "claude":
+        response_text, usage = _call_claude(images)
+    elif ocr_model == "ollama":
+        response_text, usage = _call_ollama(images, model=ocr_model)
+    elif ocr_model == "sagemaker":
+        response_text, usage = _call_sagemaker(images)
+>>>>>>> Stashed changes
 
     # Strip accidental markdown fencing
     if response_text.startswith("```"):
