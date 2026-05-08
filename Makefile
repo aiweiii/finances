@@ -28,11 +28,11 @@ dev: dev_backend dev_frontend
 stg_preprocess:
 	ENV=stg python3 preprocessor/process_document.py
 
-stg_preprocess_hsbc:
-	ENV=stg python3 preprocessor/process_hsbc.py
+stg_preprocess_hsbc_sagemaker:
+	ENV=stg OCR_MODEL=sagemaker python3 preprocessor/process_hsbc.py
 
 stg_test:
-	pytest preprocessor/test.py -v
+	ENV=stg pytest preprocessor/test.py -v
 
 spt: stg_preprocess stg_test
 

@@ -11,8 +11,7 @@ from process_document import extract_chocolate_transactions
 def get_file_path(*args):
     return os.path.join(os.path.dirname(__file__), *args)
 
-def count_csv_rows(filename):
-    path = get_file_path("scratch", f"{filename}.csv")
+def count_csv_rows(path):
     with open(path, "r", newline="") as file:
         reader = csv.reader(file)
         return sum(1 for _ in reader)
@@ -32,7 +31,7 @@ class TestChocolateSplitTransaction:
             ["",       "Ltd",                                   "", "",       ""],
             ["20 Jul", "Card transaction: SMRT Buses / trains", "", "S$2.00", "S$31.40"],
         ])
-        results, _ = extract_chocolate_transactions(df)
+        results, _, _ = extract_chocolate_transactions(df)
         assert results[0] == ("19 Jul", "SMRT Buses / trains", "", "1.19")
         assert results[1] == ("19 Jul", "Smp Parvifolia Pte Ltd", "", "1.60")
         assert results[2] == ("20 Jul", "SMRT Buses / trains", "", "2.00")
@@ -52,7 +51,7 @@ class TestChocolateContinuationVsNewTxn:
             ["",       "Souther",                               "", "",       ""],
             ["06 Sep", "Card transaction: CU",                  "", "S$1.12", "S$146.15"],
         ])
-        results, _ = extract_chocolate_transactions(df)
+        results, _, _ = extract_chocolate_transactions(df)
         assert results[0] == ("05 Sep", "SMRT Buses / trains", "", "3.96")
         assert results[1] == ("05 Sep", "Automobile Association Of", "", "20.00")
         assert results[2] == ("06 Sep", "E-Mart 24 Seoul Souther", "", "2.42")
@@ -66,7 +65,7 @@ class TestChocolateFourColumnBalance:
         df = _make_df([
             ["31 May", "Monthly returns", "S$0.03", "S$8.50"],
         ])
-        results, stopped = extract_chocolate_transactions(df)
+        results, stopped, _ = extract_chocolate_transactions(df)
         assert results[0] == ("31 May", "Monthly returns", "0.03", "")
         assert stopped is True
 
@@ -74,7 +73,7 @@ class TestChocolateFourColumnBalance:
         df = _make_df([
             ["12 Jan", "Card transaction: Koufu", "", "S$8.50"],
         ])
-        results, _ = extract_chocolate_transactions(df)
+        results, _, _ = extract_chocolate_transactions(df)
         assert results[0] == ("12 Jan", "Koufu", "", "8.50")
 
 
@@ -84,10 +83,10 @@ class TestChocolateMonthlyReturnsStopping:
     def test_stops_after_monthly_returns(self):
         df = _make_df([
             ["30 Dec", "Card transaction: SMRT Buses / trains", "", "S$2.56", "S$206.65"],
-            ["31 Dec", "Monthly returns",                       "S$0.29", "", "S$202.00"],
-            ["01 Jan", "Card transaction: Something",           "", "S$5.00", "S$197.00"],
+            ["31 Dec", "Monthly returns",                       "S$0.29", "", "S$206.94"],
+            ["01 Jan", "Card transaction: Something",           "", "S$5.00", "S$201.94"],
         ])
-        results, stopped = extract_chocolate_transactions(df)
+        results, stopped, _ = extract_chocolate_transactions(df)
         assert len(results) == 2
         assert stopped is True
         assert results[1] == ("31 Dec", "Monthly returns", "0.29", "")
@@ -114,8 +113,10 @@ class TestChocolateMonthlyReturnsStopping:
     ("citi_apr_2025", 57),
     ("citi_aug_2025", 62),
     ("citi_dec_2025", 61),
-    ("citi_feb_2026", 32),
     ("citi_jan_2026", 34),
+    ("citi_feb_2026", 32),
+    ("citi_mar_2026", 31),
+    ("citi_apr_2026", 67),
     ("chocolate_may_2025", 12),
     ("chocolate_jun_2025", 61),
     ("chocolate_jul_2025", 36),
@@ -126,9 +127,15 @@ class TestChocolateMonthlyReturnsStopping:
     ("chocolate_dec_2025", 36),
     ("chocolate_jan_2026", 44),
     ("chocolate_feb_2026", 28),
+    ("chocolate_mar_2026", 45),
+    ("hsbc_jan_2026", 24),
+    ("hsbc_feb_2026", 31),
+    ("hsbc_mar_2026", 15),
+    ("hsbc_apr_2026", 18),
 ])
 def test_csv_row_count(filename, expected):
-    path = get_file_path("scratch", f"{filename}.csv")
+    env = os.getenv("ENV")
+    path = get_file_path(f"scratch/{env}", f"{filename}.csv")
     if not os.path.exists(path):
         pytest.skip(f"{filename}.csv not found")
-    assert count_csv_rows(filename) == expected
+    assert count_csv_rows(path) == expected
