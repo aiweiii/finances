@@ -1,4 +1,6 @@
-import { Pool } from "pg";
+import { Pool, types } from "pg";
+
+types.setTypeParser(1082, (val: string) => val);
 
 const pool = new Pool({
   connectionString: process.env.DB_DSN,

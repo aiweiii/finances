@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
+import { monthRange, yearRange } from "@/lib/date";
 
 export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month"); // YYYY-MM or "all"
@@ -9,11 +10,13 @@ export async function GET(req: NextRequest) {
   let params: string[] = [];
 
   if (month && month !== "all") {
-    dateFilter = `TO_CHAR(e.txn_date, 'YYYY-MM') = $1`;
-    params = [month];
+    const [start, end] = monthRange(month);
+    dateFilter = `e.txn_date >= $1 AND e.txn_date < $2`;
+    params = [start, end];
   } else if (year) {
-    dateFilter = `TO_CHAR(e.txn_date, 'YYYY') = $1`;
-    params = [year];
+    const [start, end] = yearRange(year);
+    dateFilter = `e.txn_date >= $1 AND e.txn_date < $2`;
+    params = [start, end];
   } else {
     return NextResponse.json({ error: "month or year required" }, { status: 400 });
   }
@@ -44,7 +47,7 @@ export async function GET(req: NextRequest) {
       category: r.category || "N/A",
       amount: parseFloat(r.amount),
       duplicate_count: parseInt(r.duplicate_count, 10),
-      txn_date: r.txn_date.toISOString().split("T")[0],
+      txn_date: r.txn_date,
     }))
   );
 }

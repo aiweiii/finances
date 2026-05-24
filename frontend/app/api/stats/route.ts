@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
+import { monthRange, yearRange, prevMonthRange } from "@/lib/date";
 
 export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month"); // YYYY-MM or "all" for full year
@@ -8,21 +9,26 @@ export async function GET(req: NextRequest) {
 
   let dateFilter: string;
   let prevDateFilter: string;
-  let params: (string | string[])[] = [];
+  let params: string[];
+  let prevParams: string[];
 
   if (month && month !== "all") {
-    dateFilter = `TO_CHAR(e.txn_date, 'YYYY-MM') = $1`;
-    params = [month];
+    const [start, end] = monthRange(month);
+    dateFilter = `e.txn_date >= $1 AND e.txn_date < $2`;
+    params = [start, end];
 
-    const [y, m] = month.split("-").map(Number);
-    const prevDate = new Date(y, m - 2, 1);
-    const prevKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
-    prevDateFilter = `TO_CHAR(e.txn_date, 'YYYY-MM') = '${prevKey}'`;
+    const [prevStart, prevEnd] = prevMonthRange(month);
+    prevDateFilter = `e.txn_date >= $1 AND e.txn_date < $2`;
+    prevParams = [prevStart, prevEnd];
   } else if (year) {
-    dateFilter = `TO_CHAR(e.txn_date, 'YYYY') = $1`;
-    params = [year];
+    const [start, end] = yearRange(year);
+    dateFilter = `e.txn_date >= $1 AND e.txn_date < $2`;
+    params = [start, end];
+
     const prevYear = String(Number(year) - 1);
-    prevDateFilter = `TO_CHAR(e.txn_date, 'YYYY') = '${prevYear}'`;
+    const [prevStart, prevEnd] = yearRange(prevYear);
+    prevDateFilter = `e.txn_date >= $1 AND e.txn_date < $2`;
+    prevParams = [prevStart, prevEnd];
   } else {
     return NextResponse.json({ error: "month or year required" }, { status: 400 });
   }
@@ -31,12 +37,13 @@ export async function GET(req: NextRequest) {
   let prevExcludeClause = "";
   const excludeCategories = excludeParam ? excludeParam.split(",").filter(Boolean) : [];
   if (excludeCategories.length > 0) {
-    const placeholders = excludeCategories.map((_, i) => `$${params.length + 1 + i}`).join(", ");
+    const placeholders = excludeCategories.map((_, i) => `$${3 + i}`).join(", ");
     excludeClause = ` AND COALESCE(eo.category, 'N/A') NOT IN (${placeholders})`;
-    const escaped = excludeCategories.map((c) => `'${c.replace(/'/g, "''")}'`).join(", ");
-    prevExcludeClause = ` AND COALESCE(eo.category, 'N/A') NOT IN (${escaped})`;
+    const prevPlaceholders = excludeCategories.map((_, i) => `$${3 + i}`).join(", ");
+    prevExcludeClause = ` AND COALESCE(eo.category, 'N/A') NOT IN (${prevPlaceholders})`;
   }
   const allParams = [...params, ...excludeCategories];
+  const allPrevParams = [...prevParams, ...excludeCategories];
 
   const joinClause = `FROM expenses e LEFT JOIN expenses_overrides eo ON e.transaction_id = eo.transaction_id`;
   const activeClause = `e.active = TRUE AND COALESCE(eo.ignored, FALSE) = FALSE`;
@@ -49,7 +56,8 @@ export async function GET(req: NextRequest) {
     ),
     pool.query(
       `SELECT COALESCE(SUM(e.amount), 0) as total
-       ${joinClause} WHERE ${activeClause} AND e.txn_type = 'DEBIT' AND ${prevDateFilter}${prevExcludeClause}`
+       ${joinClause} WHERE ${activeClause} AND e.txn_type = 'DEBIT' AND ${prevDateFilter}${prevExcludeClause}`,
+      allPrevParams
     ),
     pool.query(
       `SELECT eo.category, SUM(e.amount) as total

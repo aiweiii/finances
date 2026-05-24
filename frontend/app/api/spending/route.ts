@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
+import { monthRange, yearRange } from "@/lib/date";
 
 export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month"); // YYYY-MM or "all"
@@ -8,10 +9,11 @@ export async function GET(req: NextRequest) {
   const excludeCategories = excludeParam ? excludeParam.split(",").filter(Boolean) : [];
 
   if (month && month !== "all") {
-    const params: string[] = [month];
+    const [start, end] = monthRange(month);
+    const params: string[] = [start, end];
     let excludeClause = "";
     if (excludeCategories.length > 0) {
-      const placeholders = excludeCategories.map((_, i) => `$${2 + i}`).join(", ");
+      const placeholders = excludeCategories.map((_, i) => `$${3 + i}`).join(", ");
       excludeClause = ` AND COALESCE(eo.category, 'N/A') NOT IN (${placeholders})`;
       params.push(...excludeCategories);
     }
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
        WHERE e.active = TRUE
          AND e.txn_type = 'DEBIT'
          AND COALESCE(eo.ignored, FALSE) = FALSE
-         AND TO_CHAR(e.txn_date, 'YYYY-MM') = $1${excludeClause}
+         AND e.txn_date >= $1 AND e.txn_date < $2${excludeClause}
        GROUP BY DATE(e.txn_date)
        ORDER BY date`,
       params
@@ -31,15 +33,16 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       result.rows.map((r) => ({
-        date: r.date.toISOString().split("T")[0],
+        date: r.date,
         amount: parseFloat(r.amount),
       }))
     );
   } else if (year) {
-    const params: string[] = [year];
+    const [start, end] = yearRange(year);
+    const params: string[] = [start, end];
     let excludeClause = "";
     if (excludeCategories.length > 0) {
-      const placeholders = excludeCategories.map((_, i) => `$${2 + i}`).join(", ");
+      const placeholders = excludeCategories.map((_, i) => `$${3 + i}`).join(", ");
       excludeClause = ` AND COALESCE(eo.category, 'N/A') NOT IN (${placeholders})`;
       params.push(...excludeCategories);
     }
@@ -53,7 +56,7 @@ export async function GET(req: NextRequest) {
        WHERE e.active = TRUE
          AND e.txn_type = 'DEBIT'
          AND COALESCE(eo.ignored, FALSE) = FALSE
-         AND TO_CHAR(e.txn_date, 'YYYY') = $1${excludeClause}
+         AND e.txn_date >= $1 AND e.txn_date < $2${excludeClause}
        GROUP BY TO_CHAR(e.txn_date, 'YYYY-MM'), TO_CHAR(e.txn_date, 'Mon')
        ORDER BY month`,
       params
