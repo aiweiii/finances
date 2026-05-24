@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,7 +56,19 @@ func convertToCents(input string) (int64, error) {
 	return cents.IntPart(), nil
 }
 
-func getTxnId(fileNameAndRow string) string {
-	sum := sha256.Sum256([]byte(fileNameAndRow))
-	return hex.EncodeToString(sum[:4]) // Get first 4 bytes of 32-byte hash
+func transactionBaseKey(txn TxnData) string {
+	return txn.Date.Format("2006-01-02") + "|" + txn.TxnType + "|" +
+		txn.Merchant + "|" + strconv.FormatInt(txn.Value, 10) + "|" +
+		txn.Bank + "|" + strconv.FormatBool(txn.IsDepositAccount)
+}
+
+func getTransactionBaseID(txn TxnData) string {
+	sum := sha256.Sum256([]byte(transactionBaseKey(txn)))
+	return hex.EncodeToString(sum[:16])
+}
+
+func getTransactionID(transactionBaseID string, occurrenceIndex int) string {
+	input := transactionBaseID + "|" + strconv.Itoa(occurrenceIndex)
+	sum := sha256.Sum256([]byte(input))
+	return hex.EncodeToString(sum[:16])
 }

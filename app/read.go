@@ -10,26 +10,27 @@ import (
 )
 
 type TxnData struct {
-	Id               string // Just a hash of RawLocation for lookup purposes
-	Date             time.Time
-	Bank             string
-	TxnType          string // CREDIT/DEBIT
-	Value            int64
-	Category         string
-	Merchant         string
-	RawLocation      string
-	IsDepositAccount bool
+	TransactionID     string
+	TransactionBaseID string
+	OccurrenceIndex   int
+	Date              time.Time
+	Bank              string
+	TxnType           string // CREDIT/DEBIT
+	Value             int64
+	Category          string
+	Merchant          string
+	RawLocation       string
+	IsDepositAccount  bool
 }
 
 var (
-	transactions            []TxnData
 	merchantsUnaccountedFor []string
 )
 
 func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 	funcName := "GetTransactions"
 
-	transactions = []TxnData{}
+	txnsForFile := []TxnData{}
 
 	fileNameWithExt := filepath.Base(inputFilePath)
 	fileName := strings.TrimSuffix(fileNameWithExt, filepath.Ext(fileNameWithExt))
@@ -104,12 +105,12 @@ func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 		txn.Bank = bank
 		txn.IsDepositAccount = isDepositAccTxn
 		txn.RawLocation = fileName + "_" + strconv.Itoa(rowNo)
-		txn.Id = getTxnId(txn.RawLocation)
+		txn.TransactionBaseID = getTransactionBaseID(txn)
 
-		transactions = append(transactions, txn)
+		txnsForFile = append(txnsForFile, txn)
 	}
 
-	return transactions, nil
+	return txnsForFile, nil
 }
 
 func getTransactionsForUobCreditCard(row []string, year string) (TxnData, error) {

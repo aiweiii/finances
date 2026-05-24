@@ -37,6 +37,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("error connecting to database: %v", err)
 	}
+	if _, err := conn.Exec(ctx, "SET timezone = 'Asia/Singapore'"); err != nil {
+		log.Fatalf("error setting timezone: %v", err)
+	}
 
 	err = app.MustSetup(ctx, conn)
 	if err != nil {
@@ -59,6 +62,7 @@ func main() {
 		log.Fatalf("error populating categories: %v", err)
 	}
 
+	allTxns := []app.TxnData{}
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -71,9 +75,15 @@ func main() {
 			log.Fatalf("error getting transactions: %v", err)
 		}
 
-		err = app.InsertIntoDb(ctx, conn, txns)
-		if err != nil {
-			log.Fatalf("error inserting transactions into db: %v", err)
-		}
+		allTxns = append(allTxns, txns...)
+	}
+
+	if len(allTxns) == 0 {
+		log.Fatalf("no transactions parsed from %s; refusing to deactivate existing transactions", inputFilePath)
+	}
+
+	err = app.UpsertTransactions(ctx, conn, allTxns)
+	if err != nil {
+		log.Fatalf("error inserting transactions into db: %v", err)
 	}
 }
