@@ -43,10 +43,10 @@ This is a CLI-driven finance ingestion pipeline — it runs once, reads CSVs, an
 1. **Preprocessor** (Python): Converts PDF bank statements to CSVs, placing output in `preprocessor/scratch/{env}/`.
    - `preprocessor/process_document.py`: UOB, Citi, Chocolate Finance (text-based PDFs via Camelot).
    - `preprocessor/process_hsbc.py`: HSBC scanned statements via vision OCR (Claude API, Ollama, or SageMaker).
-2. **main.go**: Entry point. Loads env (argument required: local/dev/stg/prd), connects to Postgres, builds the category trie, then iterates over every CSV in `preprocessor/scratch/{env}/`.
-3. **app/read.go**: Parses CSVs into `TxnData` structs. Filename encodes bank + date + account type: `<bank>_<mon>_<yyyy>.csv` (credit card) or `<bank>_<mon>_<yyyy>_deposit.csv` (deposit account). Supported banks: UOB, Citi, Chocolate Finance, HSBC.
+2. **main.go**: Entry point. Loads env (argument required: local/dev/stg/prd), connects to Postgres, builds the category trie, parses every CSV in `preprocessor/scratch/{env}/`, then upserts the full import set in one DB transaction.
+3. **app/read.go**: Parses CSVs into `TxnData` structs without assigning final row IDs. Filename encodes bank + date + account type: `<bank>_<mon>_<yyyy>.csv` (credit card) or `<bank>_<mon>_<yyyy>_deposit.csv` (deposit account). Supported banks: UOB, Citi, Chocolate Finance, HSBC.
 4. **app/trie.go** + **app/categories.go**: Builds a prefix trie from merchant name files in `categories/`. `MatchLongestCategory` does longest-prefix matching against merchant strings to assign a category.
-5. **app/db.go**: `MustSetup` creates the `expenses` and `categories` tables (controlled by `SHOULD_DROP_TABLE`/`DROP_TABLES` env vars). `PopulateCategories` upserts category names from the trie into the `categories` table. `InsertIntoDb` bulk-inserts within a transaction using ON CONFLICT (raw_location) DO UPDATE — updates category and modified_date only if the new category is non-empty and different. `raw_location` has a UNIQUE constraint to prevent duplicate rows. Schema includes `is_deposit_account` boolean to distinguish credit card vs deposit account transactions.
+5. **app/db.go**: `MustSetup` creates `expenses`, `expenses_overrides`, and `categories` (controlled by `SHOULD_DROP_TABLE`/`DROP_TABLES` env vars). `PopulateCategories` upserts category names from the trie into `categories`. `UpsertTransactions` assigns stable `transaction_id` values from `transaction_base_id + occurrence_index`, upserts active transactions, preserves manual overrides, and marks rows missing from the current full import as inactive.
 6. **Frontend** (Next.js): `frontend/` directory. Dashboard at `localhost:3000` with spending trends, category breakdowns, and per-account transaction filtering. API routes under `frontend/app/api/`.
 
 **Environment files:** `.env.local`, `.env.dev`, `.env.stg`, `.env.prd` — selected by passing the env name as the first CLI argument (required; fatals if omitted).
@@ -59,7 +59,7 @@ This is a CLI-driven finance ingestion pipeline — it runs once, reads CSVs, an
 - `SAGEMAKER_QWEN_2_5_VL_ENDPOINT_NAME`: AWS SageMaker endpoint name for HSBC OCR (stg only)
 - `OCR_MODEL`: injected by Makefile targets — `"claude"` (default), `"qwen2.5vl:3b"` (Ollama), or `"sagemaker"`
 
-**Transaction ID:** SHA-256 of `<filename>_<rowNumber>`, truncated to 4 bytes hex. Note: IDs depend on filename, so renaming CSVs will generate new IDs.
+**Transaction ID:** `transaction_base_id` is a SHA-256 hash of canonical transaction content (`txn_date`, `txn_type`, `merchant`, amount in cents, `bank`, `is_deposit_account`), truncated to 16 bytes hex. `occurrence_index` distinguishes exact duplicates within the same base. `transaction_id` is a SHA-256 hash of `<transaction_base_id>|<occurrence_index>`, truncated to 16 bytes hex. `raw_location` is provenance only, not identity.
 
 **Categories:** Plain-text files under `categories/` (e.g. `food`, `groceries`, `transport`). Each line is a merchant name prefix. The filename (without extension) becomes the category label stored in the DB.
 
