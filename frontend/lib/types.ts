@@ -1,5 +1,7 @@
 export interface Expense {
-  id: string;
+  transaction_id: string;
+  transaction_base_id: string;
+  occurrence_index: number;
   txn_date: string;
   txn_type: string;
   category: string;
@@ -8,6 +10,7 @@ export interface Expense {
   bank: string;
   is_deposit_account: boolean;
   ignored: boolean;
+  duplicate_count: number;
 }
 
 export interface MonthlyStats {

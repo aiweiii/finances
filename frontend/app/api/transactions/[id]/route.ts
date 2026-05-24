@@ -5,15 +5,19 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: transactionId } = await params;
   const body = await req.json();
   const { category, ignored } = body;
 
   if (typeof ignored === "boolean") {
-    await pool.query(`UPDATE expenses SET ignored = $1 WHERE id = $2`, [
-      ignored,
-      id,
-    ]);
+    await pool.query(
+      `INSERT INTO expenses_overrides (transaction_id, ignored)
+       VALUES ($1, $2)
+       ON CONFLICT (transaction_id) DO UPDATE
+       SET ignored = EXCLUDED.ignored,
+           modified_date = now()`,
+      [transactionId, ignored]
+    );
     return NextResponse.json({ ok: true });
   }
 
@@ -24,10 +28,15 @@ export async function PATCH(
     );
   }
 
-  await pool.query(`UPDATE expenses SET category = $1 WHERE id = $2`, [
-    category,
-    id,
-  ]);
+  await pool.query(
+    `INSERT INTO expenses_overrides (transaction_id, category, modified_by)
+     VALUES ($1, $2, 'MANUAL')
+     ON CONFLICT (transaction_id) DO UPDATE
+     SET category = EXCLUDED.category,
+         modified_by = 'MANUAL',
+         modified_date = now()`,
+    [transactionId, category]
+  );
 
   return NextResponse.json({ ok: true });
 }

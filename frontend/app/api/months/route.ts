@@ -7,7 +7,7 @@ export async function GET() {
       TO_CHAR(txn_date, 'YYYY-MM') as month_key,
       TO_CHAR(txn_date, 'Mon YYYY') as label
     FROM expenses
-    WHERE txn_type = 'DEBIT'
+    WHERE active = TRUE AND txn_type = 'DEBIT'
     ORDER BY month_key DESC
   `);
 

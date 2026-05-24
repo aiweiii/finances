@@ -12,15 +12,19 @@ export async function GET(req: NextRequest) {
     let excludeClause = "";
     if (excludeCategories.length > 0) {
       const placeholders = excludeCategories.map((_, i) => `$${2 + i}`).join(", ");
-      excludeClause = ` AND category NOT IN (${placeholders})`;
+      excludeClause = ` AND COALESCE(eo.category, 'N/A') NOT IN (${placeholders})`;
       params.push(...excludeCategories);
     }
 
     const result = await pool.query(
-      `SELECT DATE(txn_date) as date, SUM(amount) as amount
-       FROM expenses
-       WHERE txn_type = 'DEBIT' AND ignored = FALSE AND TO_CHAR(txn_date, 'YYYY-MM') = $1${excludeClause}
-       GROUP BY DATE(txn_date)
+      `SELECT DATE(e.txn_date) as date, SUM(e.amount) as amount
+       FROM expenses e
+       LEFT JOIN expenses_overrides eo ON e.transaction_id = eo.transaction_id
+       WHERE e.active = TRUE
+         AND e.txn_type = 'DEBIT'
+         AND COALESCE(eo.ignored, FALSE) = FALSE
+         AND TO_CHAR(e.txn_date, 'YYYY-MM') = $1${excludeClause}
+       GROUP BY DATE(e.txn_date)
        ORDER BY date`,
       params
     );
@@ -36,17 +40,21 @@ export async function GET(req: NextRequest) {
     let excludeClause = "";
     if (excludeCategories.length > 0) {
       const placeholders = excludeCategories.map((_, i) => `$${2 + i}`).join(", ");
-      excludeClause = ` AND category NOT IN (${placeholders})`;
+      excludeClause = ` AND COALESCE(eo.category, 'N/A') NOT IN (${placeholders})`;
       params.push(...excludeCategories);
     }
 
     const result = await pool.query(
-      `SELECT TO_CHAR(txn_date, 'YYYY-MM') as month,
-              TO_CHAR(txn_date, 'Mon') as label,
-              SUM(amount) as amount
-       FROM expenses
-       WHERE txn_type = 'DEBIT' AND ignored = FALSE AND TO_CHAR(txn_date, 'YYYY') = $1${excludeClause}
-       GROUP BY TO_CHAR(txn_date, 'YYYY-MM'), TO_CHAR(txn_date, 'Mon')
+      `SELECT TO_CHAR(e.txn_date, 'YYYY-MM') as month,
+              TO_CHAR(e.txn_date, 'Mon') as label,
+              SUM(e.amount) as amount
+       FROM expenses e
+       LEFT JOIN expenses_overrides eo ON e.transaction_id = eo.transaction_id
+       WHERE e.active = TRUE
+         AND e.txn_type = 'DEBIT'
+         AND COALESCE(eo.ignored, FALSE) = FALSE
+         AND TO_CHAR(e.txn_date, 'YYYY') = $1${excludeClause}
+       GROUP BY TO_CHAR(e.txn_date, 'YYYY-MM'), TO_CHAR(e.txn_date, 'Mon')
        ORDER BY month`,
       params
     );

@@ -11,61 +11,60 @@ export async function GET(req: NextRequest) {
   let params: (string | string[])[] = [];
 
   if (month && month !== "all") {
-    // Specific month
-    dateFilter = `TO_CHAR(txn_date, 'YYYY-MM') = $1`;
+    dateFilter = `TO_CHAR(e.txn_date, 'YYYY-MM') = $1`;
     params = [month];
 
-    // Previous month
     const [y, m] = month.split("-").map(Number);
     const prevDate = new Date(y, m - 2, 1);
     const prevKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
-    prevDateFilter = `TO_CHAR(txn_date, 'YYYY-MM') = '${prevKey}'`;
+    prevDateFilter = `TO_CHAR(e.txn_date, 'YYYY-MM') = '${prevKey}'`;
   } else if (year) {
-    dateFilter = `TO_CHAR(txn_date, 'YYYY') = $1`;
+    dateFilter = `TO_CHAR(e.txn_date, 'YYYY') = $1`;
     params = [year];
     const prevYear = String(Number(year) - 1);
-    prevDateFilter = `TO_CHAR(txn_date, 'YYYY') = '${prevYear}'`;
+    prevDateFilter = `TO_CHAR(e.txn_date, 'YYYY') = '${prevYear}'`;
   } else {
     return NextResponse.json({ error: "month or year required" }, { status: 400 });
   }
 
-  // Build category exclusion clause
   let excludeClause = "";
   let prevExcludeClause = "";
   const excludeCategories = excludeParam ? excludeParam.split(",").filter(Boolean) : [];
   if (excludeCategories.length > 0) {
     const placeholders = excludeCategories.map((_, i) => `$${params.length + 1 + i}`).join(", ");
-    excludeClause = ` AND category NOT IN (${placeholders})`;
-    // For prev query which has no positional params, inline safely
+    excludeClause = ` AND COALESCE(eo.category, 'N/A') NOT IN (${placeholders})`;
     const escaped = excludeCategories.map((c) => `'${c.replace(/'/g, "''")}'`).join(", ");
-    prevExcludeClause = ` AND category NOT IN (${escaped})`;
+    prevExcludeClause = ` AND COALESCE(eo.category, 'N/A') NOT IN (${escaped})`;
   }
   const allParams = [...params, ...excludeCategories];
 
+  const joinClause = `FROM expenses e LEFT JOIN expenses_overrides eo ON e.transaction_id = eo.transaction_id`;
+  const activeClause = `e.active = TRUE AND COALESCE(eo.ignored, FALSE) = FALSE`;
+
   const [statsResult, prevResult, topCatResult, daysResult, creditResult] = await Promise.all([
     pool.query(
-      `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
-       FROM expenses WHERE txn_type = 'DEBIT' AND ignored = FALSE AND ${dateFilter}${excludeClause}`,
+      `SELECT COALESCE(SUM(e.amount), 0) as total, COUNT(*) as count
+       ${joinClause} WHERE ${activeClause} AND e.txn_type = 'DEBIT' AND ${dateFilter}${excludeClause}`,
       allParams
     ),
     pool.query(
-      `SELECT COALESCE(SUM(amount), 0) as total
-       FROM expenses WHERE txn_type = 'DEBIT' AND ignored = FALSE AND ${prevDateFilter}${prevExcludeClause}`
+      `SELECT COALESCE(SUM(e.amount), 0) as total
+       ${joinClause} WHERE ${activeClause} AND e.txn_type = 'DEBIT' AND ${prevDateFilter}${prevExcludeClause}`
     ),
     pool.query(
-      `SELECT category, SUM(amount) as total
-       FROM expenses WHERE txn_type = 'DEBIT' AND ignored = FALSE AND ${dateFilter}${excludeClause}
-       GROUP BY category ORDER BY total DESC LIMIT 3`,
+      `SELECT eo.category, SUM(e.amount) as total
+       ${joinClause} WHERE ${activeClause} AND e.txn_type = 'DEBIT' AND ${dateFilter}${excludeClause}
+       GROUP BY eo.category ORDER BY total DESC LIMIT 3`,
       allParams
     ),
     pool.query(
-      `SELECT COUNT(DISTINCT DATE(txn_date)) as days
-       FROM expenses WHERE txn_type = 'DEBIT' AND ignored = FALSE AND ${dateFilter}${excludeClause}`,
+      `SELECT COUNT(DISTINCT DATE(e.txn_date)) as days
+       ${joinClause} WHERE ${activeClause} AND e.txn_type = 'DEBIT' AND ${dateFilter}${excludeClause}`,
       allParams
     ),
     pool.query(
-      `SELECT COALESCE(SUM(amount), 0) as total
-       FROM expenses WHERE txn_type = 'CREDIT' AND ignored = FALSE AND ${dateFilter}${excludeClause}`,
+      `SELECT COALESCE(SUM(e.amount), 0) as total
+       ${joinClause} WHERE ${activeClause} AND e.txn_type = 'CREDIT' AND ${dateFilter}${excludeClause}`,
       allParams
     ),
   ]);

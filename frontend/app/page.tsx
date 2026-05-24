@@ -192,7 +192,7 @@ export default function Home() {
       body: JSON.stringify({ ignored: !currentIgnored }),
     });
     setTransactions((prev) =>
-      prev.map((t) => (t.id === txnId ? { ...t, ignored: !currentIgnored } : t))
+      prev.map((t) => (t.transaction_id === txnId ? { ...t, ignored: !currentIgnored } : t))
     );
   };
 
@@ -203,7 +203,7 @@ export default function Home() {
       body: JSON.stringify({ category: newCategory }),
     });
     setTransactions((prev) =>
-      prev.map((t) => (t.id === txnId ? { ...t, category: newCategory } : t))
+      prev.map((t) => (t.transaction_id === txnId ? { ...t, category: newCategory } : t))
     );
     setEditingTxnId(null);
   };
@@ -211,22 +211,26 @@ export default function Home() {
   // Fetch data when period or excluded categories change
   useEffect(() => {
     if (!selectedPeriod) return;
-    setLoading(true);
     const params = getParams();
     const excludeParam = excludedCategories.size > 0
       ? `${params ? "&" : "?"}excludeCategories=${[...excludedCategories].join(",")}`
       : "";
 
-    Promise.all([
-      fetch(`/api/stats${params}${excludeParam}`).then((r) => r.json()),
-      fetch(`/api/spending${params}${excludeParam}`).then((r) => r.json()),
-      fetch(`/api/transactions${params}`).then((r) => r.json()),
-    ]).then(([statsData, spendingData, txnData]) => {
-      setStats(statsData);
-      setSpending(spendingData);
-      setTransactions(txnData);
-      setLoading(false);
-    });
+    Promise.resolve()
+      .then(() => {
+        setLoading(true);
+        return Promise.all([
+          fetch(`/api/stats${params}${excludeParam}`).then((r) => r.json()),
+          fetch(`/api/spending${params}${excludeParam}`).then((r) => r.json()),
+          fetch(`/api/transactions${params}`).then((r) => r.json()),
+        ]);
+      })
+      .then(([statsData, spendingData, txnData]) => {
+        setStats(statsData);
+        setSpending(spendingData);
+        setTransactions(txnData);
+        setLoading(false);
+      });
   }, [selectedPeriod, getParams, excludedCategories]);
 
   // Client-side filtered transactions
@@ -720,12 +724,19 @@ export default function Home() {
                   </TableHeader>
                   <TableBody>
                     {sortedTransactions.map((txn) => (
-                      <TableRow key={txn.id} className={txn.ignored ? "opacity-40" : ""}>
+                      <TableRow key={txn.transaction_id} className={txn.ignored ? "opacity-40" : ""}>
                         <TableCell className="text-muted-foreground whitespace-nowrap">
                           {txn.txn_date}
                         </TableCell>
-                        <TableCell className="font-medium max-w-[300px] truncate" title={txn.merchant}>
-                          {txn.merchant}
+                        <TableCell className="font-medium max-w-[300px]" title={txn.merchant}>
+                          <div className="flex items-center gap-2">
+                            <span className="truncate">{txn.merchant}</span>
+                            {txn.duplicate_count > 1 && (
+                              <Badge variant="outline" className="shrink-0 text-[10px]">
+                                Duplicate x{txn.duplicate_count}
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell
                           className={`font-medium whitespace-nowrap ${
@@ -743,11 +754,11 @@ export default function Home() {
                           <div className="relative inline-block">
                             <button
                               onClick={() => {
-                                if (editingTxnId === txn.id) {
+                                if (editingTxnId === txn.transaction_id) {
                                   setEditingTxnId(null);
                                   setCategorySearch("");
                                 } else {
-                                  setEditingTxnId(txn.id);
+                                  setEditingTxnId(txn.transaction_id);
                                   setCategorySearch("");
                                 }
                               }}
@@ -766,7 +777,7 @@ export default function Home() {
                                 {txn.category}
                               </Badge>
                             </button>
-                            {editingTxnId === txn.id && (
+                            {editingTxnId === txn.transaction_id && (
                               <>
                                 <div
                                   className="fixed inset-0 z-40"
@@ -789,7 +800,7 @@ export default function Home() {
                                           c.toLowerCase().includes(categorySearch.toLowerCase())
                                         );
                                         if (filtered.length > 0) {
-                                          updateCategory(txn.id, filtered[0]);
+                                          updateCategory(txn.transaction_id, filtered[0]);
                                           setCategorySearch("");
                                         }
                                       }
@@ -809,7 +820,7 @@ export default function Home() {
                                             cat === txn.category && "font-medium bg-accent"
                                           )}
                                           onClick={() => {
-                                            updateCategory(txn.id, cat);
+                                            updateCategory(txn.transaction_id, cat);
                                             setCategorySearch("");
                                           }}
                                         >
@@ -828,7 +839,7 @@ export default function Home() {
                             variant="ghost"
                             size="sm"
                             className="h-7 px-2 text-xs"
-                            onClick={() => toggleIgnored(txn.id, txn.ignored)}
+                            onClick={() => toggleIgnored(txn.transaction_id, txn.ignored)}
                           >
                             {txn.ignored ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
                             {txn.ignored ? "Restore" : "Ignore"}
