@@ -20,7 +20,7 @@ def get_file_path(*args):
 
 BANK_PATTERNS = {
     "UOB": r"^{date}\s*({date})\s*({merchant})\s*({amt_uob}).*$",
-    "CITI": r"^({date})({merchant})({amt_citi}).*$",
+    "CITI": r"^({date})({merchant})({amt_citi})\s*$",
 }
 
 
