@@ -208,6 +208,10 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     for file in sorted(os.listdir(get_file_path("statements"))):
+        # temporarily skip all HSBC PDFs (requires OCR)
+        if "hsbc" in str(file):
+            continue
+
         if not str(file).endswith(".pdf"):
             continue
 
