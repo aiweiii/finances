@@ -33,3 +33,21 @@ export interface MonthlySpending {
   month: string;
   amount: number;
 }
+
+export interface CoverageColumn {
+  key: string;
+  label: string;
+}
+
+export interface CoverageMonth {
+  month_key: string;
+  label: string;
+  imported: Record<string, boolean>;
+}
+
+export interface CoverageResponse {
+  years: string[];
+  year: string | null;
+  columns: CoverageColumn[];
+  months: CoverageMonth[];
+}
