@@ -26,7 +26,7 @@ func readCsvFile(filePath string) ([][]string, error) {
 		return nil, fmt.Errorf("error parsing file %s as CSV: %v", filePath, err)
 	}
 
-	return records[1:], nil
+	return records, nil
 }
 
 func stringToDate(ddMmm string, yyyy string) (time.Time, error) {
