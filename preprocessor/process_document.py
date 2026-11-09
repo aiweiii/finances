@@ -83,6 +83,9 @@ def extract_chocolate_transactions(df, prev_balance: float | None = None) -> tup
     """
     results = []
     pending_desc = ""
+    # The "Card transaction:" prefix often sits on the row above the one holding
+    # the date/amount; remember it so the Out fallback below still applies.
+    pending_is_card = False
 
     for _, row in df.iterrows():
         if len(row) > 5:
@@ -131,7 +134,7 @@ def extract_chocolate_transactions(df, prev_balance: float | None = None) -> tup
 
         # Fall back to description heuristic when balance can't tell us
         if actual_amt and direction is None:
-            direction = "out" if is_new_txn_desc else "in"
+            direction = "out" if (is_new_txn_desc or pending_is_card) else "in"
 
         if direction == "out":
             in_amt, out_amt = "", actual_amt
@@ -148,6 +151,7 @@ def extract_chocolate_transactions(df, prev_balance: float | None = None) -> tup
                 prev[1] += " " + pending_desc
                 results[-1] = tuple(prev)
             pending_desc = ""
+            pending_is_card = False
             if desc_cell:
                 results.append((date_cell, desc_cell, in_amt, out_amt))
         elif desc_cell:
@@ -158,6 +162,7 @@ def extract_chocolate_transactions(df, prev_balance: float | None = None) -> tup
                     prev[1] += " " + pending_desc
                     results[-1] = tuple(prev)
                 pending_desc = desc_cell
+                pending_is_card = True
             else:
                 # Continuation of pending or previous transaction
                 if pending_desc:

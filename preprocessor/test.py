@@ -77,6 +77,38 @@ class TestChocolateFourColumnBalance:
         assert results[0] == ("12 Jan", "Koufu", "", "8.50")
 
 
+class TestChocolateCardPrefixOnRowAbove:
+    """First transaction of a statement has no previous balance to compare against.
+
+    Regression: in chocolate_oct_2026 the "Card transaction:" label sat on the row
+    ABOVE the date/amount row (the same layout as the Smp Parvifolia case). With no
+    previous balance, the fallback only looked at the amount row's own description,
+    missed the prefix and recorded the card payment (Gokyo Resort, S$235.91) as money
+    IN. The fallback must remember the prefix from the row above and record it as Out.
+    """
+
+    def test_first_card_txn_without_prev_balance_is_out(self):
+        df = _make_df([
+            ["",       "Card transaction: Gokyo Resort Pvt", "",         "",         ""],
+            ["03 Oct", "",                                   "",         "S$235.91", "S$111.53"],
+            ["",       "Ltd",                                "",         "",         ""],
+            ["06 Oct", "Money added",                        "S$300.00", "",         "S$411.55"],
+        ])
+        results, _, _ = extract_chocolate_transactions(df)  # prev_balance=None
+        assert results[0] == ("03 Oct", "Gokyo Resort Pvt Ltd", "", "235.91")
+        # a genuine deposit later in the page must still be In
+        assert results[1] == ("06 Oct", "Money added", "300.00", "")
+
+    def test_deposit_without_card_prefix_is_still_in_when_no_prev_balance(self):
+        # Guard against over-correcting: the prefix memory must not turn real inflows into Out.
+        df = _make_df([
+            ["",       "Money added", "S$300.00", "", "S$411.55"],
+            ["03 Oct", "",            "S$300.00", "", "S$411.55"],
+        ])
+        results, _, _ = extract_chocolate_transactions(df)
+        assert all(r[3] == "" for r in results)
+
+
 class TestChocolateMonthlyReturnsStopping:
     """Monthly returns signals stop — no further rows processed."""
 
