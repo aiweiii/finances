@@ -28,6 +28,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
+import { StatementCoverage } from "@/components/statement-coverage";
 import type { MonthlyStats, Expense, DailySpending } from "@/lib/types";
 import {
   ArrowUpDown,
@@ -37,6 +38,7 @@ import {
   CreditCard,
   Landmark,
   LayoutGrid,
+  FileCheck,
 } from "lucide-react";
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -119,6 +121,7 @@ export default function Home() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [hideIgnored, setHideIgnored] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showCoverage, setShowCoverage] = useState(false);
 
   // Fetch available months and accounts
   useEffect(() => {
@@ -304,6 +307,18 @@ export default function Home() {
       <div className="flex">
         {/* Left Sidebar */}
         <aside className="w-[200px] shrink-0 border-r bg-muted/30 h-screen sticky top-0 overflow-y-auto px-3 py-6">
+          <button
+            onClick={() => setShowCoverage(true)}
+            className={cn(
+              "mb-6 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors",
+              showCoverage
+                ? "bg-slate-800 text-white"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+            )}
+          >
+            <FileCheck className="h-4 w-4" />
+            Statement Coverage
+          </button>
           <h2 className="mb-4 px-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Period
           </h2>
@@ -311,7 +326,10 @@ export default function Home() {
             {monthsByYear.map(({ year, months: yMonths }) => (
               <div key={year}>
                 <button
-                  onClick={() => setSelectedPeriod(year)}
+                  onClick={() => {
+                    setShowCoverage(false);
+                    setSelectedPeriod(year);
+                  }}
                   className={cn(
                     "w-full text-left px-2 py-1.5 text-sm font-bold rounded-md transition-colors",
                     selectedPeriod === year
@@ -324,7 +342,10 @@ export default function Home() {
                 {yMonths.map((m) => (
                   <button
                     key={m.month_key}
-                    onClick={() => setSelectedPeriod(m.month_key)}
+                    onClick={() => {
+                      setShowCoverage(false);
+                      setSelectedPeriod(m.month_key);
+                    }}
                     className={cn(
                       "w-full text-left pl-5 pr-2 py-1 text-sm rounded-md transition-colors",
                       selectedPeriod === m.month_key
@@ -349,6 +370,9 @@ export default function Home() {
             </h1>
           </div>
 
+          {showCoverage ? (
+            <StatementCoverage />
+          ) : (
           <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -871,6 +895,7 @@ export default function Home() {
             </Card>
           </TabsContent>
           </Tabs>
+          )}
         </div>
       </div>
 
