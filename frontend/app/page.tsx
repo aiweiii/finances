@@ -52,12 +52,16 @@ const CATEGORY_EMOJI: Record<string, string> = {
   subscription: "🔄",
   insurance: "🛡️",
   allowance: "💰",
+  salary: "💵",
+  claims: "🧾",
+  tax: "🏛️",
   enrichment: "💡",
   investment: "📈",
   lifestyle: "🥾",
   medical: "🏥",
   misc: "🗂️",
   sports: "🎾",
+  mcat: "🫀",
   "N/A": "❓",
 };
 
@@ -75,12 +79,16 @@ const CATEGORY_COLORS: Record<string, string> = {
   gifts: "border-amber-400 text-amber-700",
   insurance: "border-slate-400 text-slate-700",
   allowance: "border-emerald-400 text-emerald-700",
+  salary: "border-yellow-500 text-yellow-800",
+  claims: "border-stone-500 text-stone-800",
+  tax: "border-amber-600 text-amber-900",
   enrichment: "border-violet-400 text-violet-700",
   investment: "border-sky-400 text-sky-700",
   lifestyle: "border-lime-400 text-lime-700",
   medical: "border-red-400 text-red-700",
   misc: "border-zinc-400 text-zinc-700",
   sports: "border-green-500 text-green-800",
+  mcat: "border-rose-400 text-rose-700",
   "N/A": "border-gray-400 text-gray-500",
 };
 
