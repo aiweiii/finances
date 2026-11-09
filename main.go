@@ -63,6 +63,7 @@ func main() {
 	}
 
 	allTxns := []app.TxnData{}
+	statements := []app.StatementImport{}
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -75,6 +76,12 @@ func main() {
 			log.Fatalf("error getting transactions: %v", err)
 		}
 
+		stmt, err := app.ParseStatementFilename(entry.Name())
+		if err != nil {
+			log.Fatalf("error parsing statement filename: %v", err)
+		}
+		statements = append(statements, app.StatementImport{StatementFile: stmt, TxnCount: len(txns)})
+
 		allTxns = append(allTxns, txns...)
 	}
 
@@ -82,7 +89,7 @@ func main() {
 		log.Fatalf("no transactions parsed from %s; refusing to deactivate existing transactions", inputFilePath)
 	}
 
-	err = app.UpsertTransactions(ctx, conn, allTxns)
+	err = app.UpsertTransactions(ctx, conn, allTxns, statements)
 	if err != nil {
 		log.Fatalf("error inserting transactions into db: %v", err)
 	}

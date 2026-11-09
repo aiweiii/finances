@@ -65,6 +65,20 @@ func MustSetup(ctx context.Context, conn *pgx.Conn) error {
 		return fmt.Errorf("error creating categories table: %w", err)
 	}
 
+	_, err = conn.Exec(ctx, `
+	CREATE TABLE IF NOT EXISTS statement_imports (
+	    bank VARCHAR(255) NOT NULL,
+	    is_deposit_account BOOLEAN NOT NULL DEFAULT FALSE,
+	    statement_month DATE NOT NULL,
+	    source_file VARCHAR(255),
+	    txn_count INT NOT NULL DEFAULT 0,
+	    imported_at TIMESTAMPTZ DEFAULT now(),
+	    PRIMARY KEY (bank, is_deposit_account, statement_month)
+	)`)
+	if err != nil {
+		return fmt.Errorf("error creating statement_imports table: %w", err)
+	}
+
 	return nil
 }
 
@@ -85,7 +99,7 @@ func PopulateCategories(ctx context.Context, conn *pgx.Conn, categoryNames []str
 	return nil
 }
 
-func UpsertTransactions(ctx context.Context, conn *pgx.Conn, txns []TxnData) error {
+func UpsertTransactions(ctx context.Context, conn *pgx.Conn, txns []TxnData, statements []StatementImport) error {
 	tx, err := conn.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("error beginning transaction: %w", err)
@@ -114,7 +128,41 @@ func UpsertTransactions(ctx context.Context, conn *pgx.Conn, txns []TxnData) err
 		return fmt.Errorf("error deactivating missing transactions: %w", err)
 	}
 
+	if err := syncStatementImports(ctx, tx, statements); err != nil {
+		return fmt.Errorf("error syncing statement imports: %w", err)
+	}
+
 	return tx.Commit(ctx)
+}
+
+// StatementImport records that a statement CSV was part of the current full import.
+type StatementImport struct {
+	StatementFile
+	TxnCount int
+}
+
+// syncStatementImports mirrors the current full import: the table always
+// reflects exactly the CSVs that were just processed.
+func syncStatementImports(ctx context.Context, tx pgx.Tx, statements []StatementImport) error {
+	if _, err := tx.Exec(ctx, `DELETE FROM statement_imports`); err != nil {
+		return fmt.Errorf("error clearing statement imports: %w", err)
+	}
+
+	for _, s := range statements {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO statement_imports (bank, is_deposit_account, statement_month, source_file, txn_count)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (bank, is_deposit_account, statement_month) DO UPDATE
+			SET source_file = EXCLUDED.source_file,
+			    txn_count = EXCLUDED.txn_count,
+			    imported_at = now()`,
+			s.Bank, s.IsDepositAccount, s.Month, s.FileName, s.TxnCount,
+		); err != nil {
+			return fmt.Errorf("error inserting statement import %s: %w", s.FileName, err)
+		}
+	}
+
+	return nil
 }
 
 type existingTransactionOccurrence struct {

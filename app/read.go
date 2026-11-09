@@ -23,6 +23,36 @@ type TxnData struct {
 	IsDepositAccount  bool
 }
 
+// StatementFile is the metadata encoded in a CSV filename:
+// <bank>_<mon>_<yyyy>.csv or <bank>_<mon>_<yyyy>_deposit.csv
+type StatementFile struct {
+	FileName         string    // without extension
+	Bank             string    // upper-cased, e.g. UOB
+	Month            time.Time // first day of the statement month
+	IsDepositAccount bool
+}
+
+func ParseStatementFilename(path string) (StatementFile, error) {
+	base := filepath.Base(path)
+	fileName := strings.TrimSuffix(base, filepath.Ext(base))
+	parts := strings.Split(fileName, "_")
+	if len(parts) < 3 {
+		return StatementFile{}, fmt.Errorf("unexpected statement filename %q", base)
+	}
+
+	month, err := time.Parse("Jan 2006", strings.Title(strings.ToLower(parts[1]))+" "+parts[2])
+	if err != nil {
+		return StatementFile{}, fmt.Errorf("error parsing statement month from filename %q: %w", base, err)
+	}
+
+	return StatementFile{
+		FileName:         fileName,
+		Bank:             strings.ToUpper(parts[0]),
+		Month:            month,
+		IsDepositAccount: len(parts) > 3,
+	}, nil
+}
+
 var (
 	merchantsUnaccountedFor []string
 )
@@ -32,23 +62,15 @@ func GetTransactions(inputFilePath string, trie *Trie) ([]TxnData, error) {
 
 	txnsForFile := []TxnData{}
 
-	fileNameWithExt := filepath.Base(inputFilePath)
-	fileName := strings.TrimSuffix(fileNameWithExt, filepath.Ext(fileNameWithExt))
-	parts := strings.Split(fileName, "_")
-	bank := strings.ToUpper(parts[0])
-	year := parts[2]
-
-	// Parse statement month from filename to detect cross-year transactions
-	stmtMonthTime, err := time.Parse("Jan", strings.Title(strings.ToLower(parts[1])))
+	stmt, err := ParseStatementFilename(inputFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("[%s] error parsing statement month from filename: %w", funcName, err)
+		return nil, fmt.Errorf("[%s] %w", funcName, err)
 	}
-	stmtMonth := stmtMonthTime.Month()
-
-	isDepositAccTxn := false
-	if len(parts) > 3 {
-		isDepositAccTxn = true
-	}
+	fileName := stmt.FileName
+	bank := stmt.Bank
+	year := strconv.Itoa(stmt.Month.Year())
+	stmtMonth := stmt.Month.Month()
+	isDepositAccTxn := stmt.IsDepositAccount
 
 	txns, err := readCsvFile(inputFilePath)
 	if err != nil {
