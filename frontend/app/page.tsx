@@ -760,9 +760,9 @@ export default function Home() {
                         <TableCell className="text-muted-foreground whitespace-nowrap">
                           {txn.txn_date}
                         </TableCell>
-                        <TableCell className="font-medium max-w-[300px]" title={txn.merchant}>
+                        <TableCell className="font-medium max-w-[300px] whitespace-normal">
                           <div className="flex items-center gap-2">
-                            <span className="truncate">{txn.merchant}</span>
+                            <span className="break-words min-w-0">{txn.merchant}</span>
                             {txn.duplicate_count > 1 && (
                               <Badge variant="outline" className="shrink-0 text-[10px]">
                                 Duplicate x{txn.duplicate_count}
